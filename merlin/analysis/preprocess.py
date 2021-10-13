@@ -45,7 +45,7 @@ class DeconvolutionPreprocess(Preprocess):
         if 'highpass_sigma' not in self.parameters:
             self.parameters['highpass_sigma'] = 3
         if 'decon_sigma' not in self.parameters:
-            self.parameters['decon_sigma'] = 2
+            self.parameters['decon_sigma'] = -1
         if 'decon_filter_size' not in self.parameters:
             self.parameters['decon_filter_size'] = \
                 int(2 * np.ceil(2 * self.parameters['decon_sigma']) + 1)
@@ -134,9 +134,12 @@ class DeconvolutionPreprocess(Preprocess):
         deconFilterSize = self.parameters['decon_filter_size']
 
         filteredImage = self._high_pass_filter(inputImage)
-        deconvolvedImage = deconvolve.deconvolve_lucyrichardson(
-            filteredImage, deconFilterSize, self._deconSigma,
-            self._deconIterations).astype(np.uint16)
+        if self._deconSigma == -1:
+            deconvolvedImage = filteredImage.astype(np.uint16)
+        else:
+            deconvolvedImage = deconvolve.deconvolve_lucyrichardson(
+                filteredImage, deconFilterSize, self._deconSigma,
+                self._deconIterations).astype(np.uint16)
         return deconvolvedImage
 
 
