@@ -36,6 +36,8 @@ def build_parser():
                         help='name of the codebook to use')
     parser.add_argument('-m', '--microscope-parameters',
                         help='name of the microscope parameters to use')
+    parser.add_argument('-r', '--microscope-chromatic-corrections',
+                        help='name of the microscope chromatic corrections to use')
     parser.add_argument('-p', '--positions',
                         help='name of the position file to use')
     parser.add_argument('-n', '--core-count', type=int,
@@ -106,11 +108,12 @@ def merlin():
         dataOrganizationName=_clean_string_arg(args.data_organization),
         codebookNames=args.codebook,
         microscopeParametersName=_clean_string_arg(args.microscope_parameters),
+        microscopeChromaticCorrectionsName = _clean_string_arg(args.microscope_chromatic_corrections),
         positionFileName=_clean_string_arg(args.positions),
         dataHome=_clean_string_arg(args.data_home),
         analysisHome=_clean_string_arg(args.analysis_home)
     )
-
+    
     parametersHome = m.ANALYSIS_PARAMETERS_HOME
     e = executor.LocalExecutor(coreCount=args.core_count)
     snakefilePath = None

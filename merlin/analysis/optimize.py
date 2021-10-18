@@ -11,7 +11,6 @@ from merlin.util import registration
 from merlin.util import aberration
 from merlin.data.codebook import Codebook
 
-
 class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
 
     """
@@ -226,6 +225,9 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
                             + 'factors.')
 
         if not self.parameters['optimize_chromatic_correction']:
+            if self.dataSet.chromaticCorrections != {}:
+                return self.dataSet.chromaticCorrections
+            
             usedColors = self._get_used_colors()
             return {u: {v: transform.SimilarityTransform()
                         for v in usedColors if v >= u} for u in usedColors}

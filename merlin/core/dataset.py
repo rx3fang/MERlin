@@ -865,7 +865,8 @@ class ImageDataSet(DataSet):
 
     def __init__(self, dataDirectoryName: str, dataHome: str = None,
                  analysisHome: str = None,
-                 microscopeParametersName: str = None):
+                 microscopeParametersName: str = None,
+                 microscopeChromaticCorrectionsName: str = None):
         """Create a dataset for the specified raw data.
 
         Args:
@@ -881,14 +882,23 @@ class ImageDataSet(DataSet):
             microscopeParametersName: the name of the microscope parameters
                     file that specifies properties of the microscope used
                     to acquire the images represented by this ImageDataSet
+            microscopeChromaticCorrectionsName: the name of the microscope chromatic
+                    correction file that specifies the transformation profiles
+                    between color channels of the microscope used
+                    to acquire the images represented by this ImageDataSet
         """
         super().__init__(dataDirectoryName, dataHome, analysisHome)
 
         if microscopeParametersName is not None:
             self._import_microscope_parameters(microscopeParametersName)
-    
+        
+        if microscopeChromaticCorrectionsName is not None:
+            self._import_chromatic_corrections(
+                microscopeChromaticCorrectionsName)
+        
         self._load_microscope_parameters()
-
+        self._load_chromatic_corrections()
+        
     def get_image_file_names(self):
         return sorted(self.rawDataPortal.list_files(
             extensionList=['.dax', '.tif', '.tiff']))
@@ -944,7 +954,34 @@ class ImageDataSet(DataSet):
                 'microns_per_pixel', 0.108)
         self.imageDimensions = self.microscopeParameters.get(
                 'image_dimensions', [2048, 2048])
+    
+    def _import_chromatic_corrections(self, chromaticCorrectionsName):
+        
+        if chromaticCorrectionsName is not None:
+            if not os.path.exists(chromaticCorrectionsName):
+                sourcePath = os.sep.join(
+                        [merlin.MICROSCOPE_PARAMETERS_HOME, 
+                        chromaticCorrectionsName])
+            else:
+                sourcePath = chromaticCorrectionsName
 
+        destPath = os.sep.join(
+                [self.analysisPath, 'chromatic_corrections.pkl'])
+
+        shutil.copyfile(sourcePath, destPath) 
+    
+    def _load_chromatic_corrections(self): 
+        
+        path = os.sep.join(
+                [self.analysisPath, 'chromatic_corrections.pkl'])
+        
+        if os.path.exists(path):
+            inputFile = open(path, "rb")
+            self.chromaticCorrections = pickle.load(inputFile)
+            inputFile.close()
+        else:
+            self.chromaticCorrections = {}
+    
     def get_microns_per_pixel(self):
         """Get the conversion factor to convert pixels to microns."""
 
@@ -975,7 +1012,8 @@ class MERFISHDataSet(ImageDataSet):
     def __init__(self, dataDirectoryName: str, codebookNames: List[str] = None,
                  dataOrganizationName: str = None, positionFileName: str = None,
                  dataHome: str = None, analysisHome: str = None,
-                 microscopeParametersName: str = None):
+                 microscopeParametersName: str = None,
+                 microscopeChromaticCorrectionsName: str = None):
         """Create a MERFISH dataset for the specified raw data.
 
         Args:
@@ -1000,9 +1038,14 @@ class MERFISHDataSet(ImageDataSet):
             microscopeParametersName: the name of the microscope parameters
                     file that specifies properties of the microscope used
                     to acquire the images represented by this ImageDataSet
+            microscopeChromaticCorrectionsName: the name of the microscope chromatic
+                    correction file that specifies the transformation profiles
+                    between color channels of the microscope used
+                    to acquire the images represented by this ImageDataSet
         """
         super().__init__(dataDirectoryName, dataHome, analysisHome,
-                         microscopeParametersName)
+                         microscopeParametersName, 
+                         microscopeChromaticCorrectionsName)
 
         self.dataOrganization = dataorganization.DataOrganization(
                 self, dataOrganizationName)
