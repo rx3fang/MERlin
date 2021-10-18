@@ -2,7 +2,11 @@ import numpy as np
 import pandas
 import os
 import tempfile
+from skimage import transform
+from typing import Dict
+from typing import List
 
+from merlin.util import aberration
 from merlin.core import dataset
 from merlin.core import analysistask
 from merlin.util import decoding
@@ -88,6 +92,39 @@ class Decode(BarcodeSavingParallelAnalysisTask):
         preprocessTask = self.dataSet.load_analysis_task(
             self.parameters['preprocess_task'])
         return preprocessTask.get_codebook()
+    
+
+    def _get_used_colors(self) -> List[str]:
+        dataOrganization = self.dataSet.get_data_organization()
+        codebook = self.get_codebook()
+        return sorted({dataOrganization.get_data_channel_color(
+            dataOrganization.get_data_channel_for_bit(x))
+            for x in codebook.get_bit_names()})
+    
+    def _get_reference_color(self):
+        return min(self._get_used_colors())
+
+    def _calculate_initial_scale_factors(self) -> np.ndarray:
+        preprocessTask = self.dataSet.load_analysis_task(
+            self.parameters['preprocess_task'])
+        bitCount = self.get_codebook().get_bit_count()
+
+        initialScaleFactors = np.zeros(bitCount)
+        pixelHistograms = preprocessTask.get_pixel_histogram()
+        for i in range(bitCount):
+            cumulativeHistogram = np.cumsum(pixelHistograms[i])
+            cumulativeHistogram = cumulativeHistogram/cumulativeHistogram[-1]
+            # Add two to match matlab code.
+            # TODO: Does +2 make sense? Used to be consistent with Matlab code
+            initialScaleFactors[i] = \
+                np.argmin(np.abs(cumulativeHistogram-0.9)) + 2
+
+        return initialScaleFactors
+
+    def _get_initial_chromatic_corrector(self):
+        usedColors = self._get_used_colors()
+        return {u: {v: transform.SimilarityTransform()
+            for v in usedColors if v >= u} for u in usedColors}
 
     def _run_analysis(self, fragmentIndex):
         """This function decodes the barcodes in a fov and saves them to the
@@ -95,17 +132,26 @@ class Decode(BarcodeSavingParallelAnalysisTask):
         """
         preprocessTask = self.dataSet.load_analysis_task(
                 self.parameters['preprocess_task'])
-        optimizeTask = self.dataSet.load_analysis_task(
-                self.parameters['optimize_task'])
+        
         decode3d = self.parameters['decode_3d']
-
+        if 'optimize_task' in self.parameters:
+            optimizeTask = self.dataSet.load_analysis_task(
+            		self.parameters['optimize_task'])
+            scaleFactors = optimizeTask.get_scale_factors()
+            backgrounds = optimizeTask.get_backgrounds()
+            chromaticCorrector = optimizeTask.get_chromatic_corrector()
+        else:
+            codebook = self.get_codebook()
+            scaleFactors = np.ones(self.get_codebook().get_bit_count())
+            backgrounds = np.zeros(self.get_codebook().get_bit_count())
+            chromaticCorrector = aberration.RigidChromaticCorrector(
+                self._get_initial_chromatic_corrector(), 
+                self._get_reference_color())
+ 
         lowPassSigma = self.parameters['lowpass_sigma']
 
         codebook = self.get_codebook()
         decoder = decoding.PixelBasedDecoder(codebook)
-        scaleFactors = optimizeTask.get_scale_factors()
-        backgrounds = optimizeTask.get_backgrounds()
-        chromaticCorrector = optimizeTask.get_chromatic_corrector()
 
         zPositionCount = len(self.dataSet.get_z_positions())
         bitCount = codebook.get_bit_count()

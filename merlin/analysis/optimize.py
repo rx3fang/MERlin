@@ -30,9 +30,15 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
             self.parameters['optimize_background'] = False
         if 'optimize_chromatic_correction' not in self.parameters:
             self.parameters['optimize_chromatic_correction'] = False
+        if 'low_pass_sigma' not in self.parameters:
+            self.parameters['low_pass_sigma'] = 0
         if 'crop_width' not in self.parameters:
-            self.parameters['crop_width'] = 0
-
+            self.parameters['crop_width'] = 102
+        if 'distance_threshold' not in self.parameters:
+            self.parameters['distance_threshold'] = 0.6
+        if 'magnitude_threshold' not in self.parameters:
+            self.parameters['magnitude_threshold'] = 1        
+ 
         if 'fov_index' in self.parameters:
             logger = self.dataSet.get_logger(self)
             logger.info('Setting fov_per_iteration to length of fov_index')
@@ -103,8 +109,11 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
         decoder = decoding.PixelBasedDecoder(codebook)
         areaThreshold = self.parameters['area_threshold']
         decoder.refactorAreaThreshold = areaThreshold
-        di, pm, npt, d = decoder.decode_pixels(warpedImages, scaleFactors,
-                                               backgrounds)
+        di, pm, npt, d = decoder.decode_pixels(
+            warpedImages, scaleFactors, backgrounds,
+            distanceThreshold=self.parameters['distance_threshold'],
+            lowPassSigma=self.parameters['low_pass_sigma'],
+            magnitudeThreshold=self.parameters['magnitude_threshold'])
 
         refactors, backgrounds, barcodesSeen = \
             decoder.extract_refactors(
