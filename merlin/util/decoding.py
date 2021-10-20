@@ -7,6 +7,7 @@ from skimage import measure
 from sklearn.neighbors import NearestNeighbors
 
 from merlin.util import binary
+from merlin.util import imagefilters
 from merlin.data import codebook as mcodebook
 
 """
@@ -89,12 +90,9 @@ class PixelBasedDecoder(object):
             scaleFactors = self._scaleFactors
         if backgrounds is None:
             backgrounds = self._backgrounds
-
-        filteredImages = np.zeros(imageData.shape, dtype=np.float32)
-        filterSize = int(2 * np.ceil(2 * lowPassSigma) + 1)
-        for i in range(imageData.shape[0]):
-            filteredImages[i, :, :] = cv2.GaussianBlur(
-                imageData[i, :, :], (filterSize, filterSize), lowPassSigma)
+        
+        filteredImages = imagefilters.low_pass_filter(
+            imageData, lowPassSigma)
 
         pixelTraces = np.reshape(
                 filteredImages, 
