@@ -17,7 +17,7 @@ install_requires = [line.rstrip() for line in open(
 
 setuptools.setup(
     name="merlin",
-    version="0.2.0",
+    version="0.2.1",
     description="MERFISH decoding software",
     author="George Emanuel",
     author_email="emanuega0@gmail.com",
