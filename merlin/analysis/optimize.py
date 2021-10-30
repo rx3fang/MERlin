@@ -148,20 +148,21 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
     def _calculate_initial_scale_factors(self) -> np.ndarray:
         preprocessTask = self.dataSet.load_analysis_task(
             self.parameters['preprocess_task'])
+        
         bitCount = self.get_codebook().get_bit_count()
-        return np.ones(bitCount).astype(np.float32)
 
-        #initialScaleFactors = np.zeros(bitCount)
-        #pixelHistograms = preprocessTask.get_pixel_histogram()
-        #for i in range(bitCount):
-        #    cumulativeHistogram = np.cumsum(pixelHistograms[i])
-        #    cumulativeHistogram = cumulativeHistogram/cumulativeHistogram[-1]
-        #    # Add two to match matlab code.
-        #    # TODO: Does +2 make sense? Used to be consistent with Matlab code
-        #    initialScaleFactors[i] = \
-        #        np.argmin(np.abs(cumulativeHistogram-0.9)) + 2
-        #
-        #return initialScaleFactors
+        if preprocessTask.parameters['save_pixel_histogram']:
+            initialScaleFactors = np.zeros(bitCount)
+            pixelHistograms = preprocessTask.get_pixel_histogram()
+            for i in range(bitCount):
+                cumulativeHistogram = np.cumsum(pixelHistograms[i])
+                cumulativeHistogram = cumulativeHistogram/cumulativeHistogram[-1]
+                initialScaleFactors[i] = \
+                    np.argmin(np.abs(cumulativeHistogram-0.9)) + 2
+        else:
+            initialScaleFactors = np.ones(bitCount).astype(np.float32)
+            
+        return initialScaleFactors
 
     def _get_previous_scale_factors(self) -> np.ndarray:
         if 'previous_iteration' not in self.parameters:
