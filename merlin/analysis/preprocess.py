@@ -77,7 +77,11 @@ class DeconvolutionPreprocess(Preprocess):
 
     def get_codebook(self) -> codebook.Codebook:
         return self.dataSet.get_codebook(self.parameters['codebook_index'])
-
+    
+    ## TODO: add a flat field image to remove the background
+    # this is particularly important for 650 channel of W1 spinning disk
+    # Background remove method should include "subtract" (default) and "divide"
+    
     def get_processed_image_set(
             self, fov, zIndex: int = None,
             chromaticCorrector: aberration.ChromaticCorrector = None
@@ -100,6 +104,7 @@ class DeconvolutionPreprocess(Preprocess):
     ) -> np.ndarray:
         inputImage = self.warpTask.get_aligned_image(fov, dataChannel, zIndex,
                                                      chromaticCorrector)
+        
         return self._preprocess_image(inputImage)
 
     def _high_pass_filter(self, inputImage: np.ndarray) -> np.ndarray:

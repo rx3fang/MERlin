@@ -91,12 +91,14 @@ class PixelBasedDecoder(object):
         if backgrounds is None:
             backgrounds = self._backgrounds
         
-        filteredImages = imagefilters.low_pass_filter(
-            imageData, lowPassSigma)
+        filteredImages = np.array([ 
+            imagefilters.low_pass_filter(x, lowPassSigma) \
+            for x in imageData ])
 
         pixelTraces = np.reshape(
                 filteredImages, 
                 (filteredImages.shape[0], np.prod(filteredImages.shape[1:])))
+
         scaledPixelTraces = np.transpose(
                 np.array([(p-b)/s for p, s, b in zip(pixelTraces, scaleFactors,
                                                    backgrounds)]))

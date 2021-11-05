@@ -27,12 +27,12 @@ def high_pass_filter(image: np.ndarray,
     gauss_highpass[lowpass > image] = 0
     return gauss_highpass
 
-def low_pass_filter(imageData: np.ndarray,
-                     lowPassSigma: float) -> np.ndarray:
+def low_pass_filter(image: np.ndarray,
+                    sigma: float) -> np.ndarray:
     """
     Args:
         image: the input image to be filtered
-        lowPassSigma: the sigma of the Gaussian.
+        sigma: the sigma of the Gaussian.
 
     Returns:
         the low pass filtered image. The returned image is the same type
@@ -40,10 +40,6 @@ def low_pass_filter(imageData: np.ndarray,
     """
     
     filteredImages = np.zeros(imageData.shape, dtype=np.float32)
-    filterSize = int(2 * np.ceil(2 * lowPassSigma) + 1)
-    for i in range(imageData.shape[0]):
-        filteredImages[i, :, :] = cv2.GaussianBlur(
-            imageData[i, :, :], (filterSize, filterSize), lowPassSigma)
-    return filteredImages
-
+    filterSize = int(2 * np.ceil(2 * sigma) + 1)
+    return cv2.GaussianBlur(image, (filterSize, filterSize), sigma)
     
