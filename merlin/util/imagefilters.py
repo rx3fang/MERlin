@@ -39,7 +39,6 @@ def low_pass_filter(image: np.ndarray,
         as the input image.
     """
     
-    filteredImages = np.zeros(imageData.shape, dtype=np.float32)
     filterSize = int(2 * np.ceil(2 * sigma) + 1)
     return cv2.GaussianBlur(image, (filterSize, filterSize), sigma)
     
