@@ -35,6 +35,7 @@ class Preprocess(analysistask.ParallelAnalysisTask):
         self.dataSet.save_numpy_analysis_result(
             histogram, 'pixel_histogram', self.analysisName, fov, 'histograms')
 
+
 class DeconvolutionPreprocess(Preprocess):
 
     def __init__(self, dataSet, parameters=None, analysisName=None):
@@ -103,33 +104,7 @@ class DeconvolutionPreprocess(Preprocess):
         inputImage = self.warpTask.get_aligned_image(fov, dataChannel, zIndex,
                                                      chromaticCorrector)
         
-        imageColor = self.dataSet.get_data_organization()\
-                        .get_data_channel_color(dataChannel)
-        
-        return self._preprocess_image(inputImage, imageColor)
-    
-    def _preprocess_image(
-            self, inputImage: np.ndarray, imageColor: str
-    ) -> np.ndarray:
-        # adjust the image illumination using dark stage
-        # and flat field image
-        
-        imageDark = self.dataSet.illuminationCorrections[imageColor]["dark"]
-        imageFlat = self.dataSet.illuminationCorrections[imageColor]["flat"]
-        filteredImage = (inputImage - imageDark) / imageFlat
-        
-        # high pass filter to remove background
-        filteredImage = self._high_pass_filter(filteredImage)
-        
-        # deconvolution (disabled when _deconSigma is -1)
-        deconFilterSize = self.parameters['decon_filter_size']
-        if self._deconSigma == -1:
-            deconvolvedImage = filteredImage.astype(np.uint16)
-        else:
-            deconvolvedImage = deconvolve.deconvolve_lucyrichardson(
-                filteredImage, deconFilterSize, self._deconSigma,
-                self._deconIterations).astype(np.uint16)
-        return deconvolvedImage
+        return self._preprocess_image(inputImage)
 
     def _high_pass_filter(self, inputImage: np.ndarray) -> np.ndarray:
         highPassFilterSize = int(2 * np.ceil(2 * self._highPassSigma) + 1)
@@ -137,7 +112,7 @@ class DeconvolutionPreprocess(Preprocess):
                                                 highPassFilterSize,
                                                 self._highPassSigma)
         return hpImage.astype(np.float)
-    
+
     def _run_analysis(self, fragmentIndex):
         
         if not self.parameters['save_pixel_histogram']:
@@ -157,16 +132,24 @@ class DeconvolutionPreprocess(Preprocess):
                 inputImage = warpTask.get_aligned_image(
                         fragmentIndex, dataChannel, i)
                 
-                imageColor = self.dataSet.get_data_organization()\
-                                .get_data_channel_color(dataChannel)
-        
-                deconvolvedImage = self._preprocess_image(
-                    inputImage, imageColor)
+                deconvolvedImage = self._preprocess_image(inputImage)
         
                 pixelHistogram[bi, :] += np.histogram(
                         deconvolvedImage, bins=histogramBins)[0]
         
         self._save_pixel_histogram(pixelHistogram, fragmentIndex)
+
+    def _preprocess_image(self, inputImage: np.ndarray) -> np.ndarray:
+        deconFilterSize = self.parameters['decon_filter_size']
+
+        filteredImage = self._high_pass_filter(inputImage)
+        if self._deconSigma == -1:
+            deconvolvedImage = filteredImage.astype(np.uint16)
+        else:
+            deconvolvedImage = deconvolve.deconvolve_lucyrichardson(
+                filteredImage, deconFilterSize, self._deconSigma,
+                self._deconIterations).astype(np.uint16)
+        return deconvolvedImage
 
 class DeconvolutionPreprocessGuo(DeconvolutionPreprocess):
 

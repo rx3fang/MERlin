@@ -1006,15 +1006,15 @@ class ImageDataSet(DataSet):
 
 
     def _load_illumination_corrections(self): 
+        
         path = os.sep.join(
                 [self.analysisPath, 'illumination_corrections.pkl'])
             
         self.illuminationCorrections = collections.defaultdict(
-            lambda : {
-                "dark": np.zeros(self.get_image_dimensions()), 
-                "flat": np.ones(self.get_image_dimensions())
-             })
-
+            lambda : collections.defaultdict(lambda : {
+                "dark": np.zeros([self.film_size[1],self.film_size[2]]), 
+                "flat": np.ones([self.film_size[1],self.film_size[2]])}))
+        
         if os.path.exists(path):
             inputFile = open(path, "rb")
             for key, val in pickle.load(inputFile).items():
