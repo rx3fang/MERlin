@@ -76,10 +76,6 @@ class DeconvolutionPreprocess(Preprocess):
     def get_codebook(self) -> codebook.Codebook:
         return self.dataSet.get_codebook(self.parameters['codebook_index'])
     
-    ## TODO: add a flat field image to remove the background
-    # this is particularly important for 650 channel of W1 spinning disk
-    # Background remove method should include "subtract" (default) and "divide"
-    
     def get_processed_image_set(
             self, fov, zIndex: int = None,
             chromaticCorrector: aberration.ChromaticCorrector = None
@@ -116,11 +112,16 @@ class DeconvolutionPreprocess(Preprocess):
         
         imageDark = self.dataSet.illuminationCorrections[imageColor]["dark"]
         imageFlat = self.dataSet.illuminationCorrections[imageColor]["flat"]
-        filteredImage = (inputImage - imageDark) / imageFlat
-        
+        correctedImage = (inputImage - imageDark) / imageFlat
+
+        # make sure values of the corrected images are not negative
+        correctedImage = np.clip(correctedImage, 
+            a_min=0, a_max=correctedImage.max())
+
         # high pass filter to remove background
-        filteredImage = self._high_pass_filter(filteredImage)
-        
+        filteredImage = self._high_pass_filter(
+            correctedImage)
+
         # deconvolution (disabled when _deconSigma is -1)
         deconFilterSize = self.parameters['decon_filter_size']
         if self._deconSigma == -1:
