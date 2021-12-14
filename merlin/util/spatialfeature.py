@@ -14,7 +14,6 @@ import networkx as nx
 import rtree
 from scipy.spatial import cKDTree
 
-
 from merlin.core import dataset
 from merlin.core import analysistask
 
@@ -27,7 +26,7 @@ class SpatialFeature(object):
 
     def __init__(self, boundaryList: List[List[geometry.Polygon]], fov: int,
                  zCoordinates: np.array = None, uniqueID: int = None,
-                 label: int = -1) -> None:
+                 label: int = -1, x: float = None, y: float = None) -> None:
         """Create a new feature specified by a list of pixels
 
         Args:
@@ -43,6 +42,8 @@ class SpatialFeature(object):
             uniqueID: the uuid of this feature. If no uuid is specified,
                 a new uuid is randomly generated.
             label: unused
+            x: the cenroid x position in the current field view
+            y: the cenroid y position in the current field view
         """
         self._boundaryList = boundaryList
         self._fov = fov
@@ -51,12 +52,15 @@ class SpatialFeature(object):
             self._uniqueID = uuid.uuid4().int
         else:
             self._uniqueID = uniqueID
-
+        
         if zCoordinates is not None:
             self._zCoordinates = zCoordinates
         else:
             self._zCoordinates = np.arange(len(boundaryList))
-
+                
+        self._x = x
+        self._y = y
+        
     @staticmethod
     def feature_from_label_matrix(labelMatrix: np.ndarray, fov: int,
                                   transformationMatrix: np.ndarray = None,
@@ -79,17 +83,29 @@ class SpatialFeature(object):
         Returns: the new feature
         """
 
-        boundaries = [SpatialFeature._extract_boundaries(x)
+        boundariesFov = [SpatialFeature._extract_boundaries(x)
                       for x in labelMatrix]
+        
+        featureLocal = SpatialFeature([SpatialFeature._remove_invalid_boundaries(
+                    SpatialFeature._remove_interior_boundaries(
+                        [geometry.Polygon(x) for x in b if len(x) > 2]))
+                                       for b in boundariesFov], 
+                                       fov = fov, 
+                                       zCoordinates = zCoordinates)
+        (xmin, ymin, xmax, ymax) = featureLocal.get_bounding_box()
 
         if transformationMatrix is not None:
             boundaries = [SpatialFeature._transform_boundaries(
-                x, transformationMatrix) for x in boundaries]
-
+                x, transformationMatrix) for x in boundariesFov]
+        
         return SpatialFeature([SpatialFeature._remove_invalid_boundaries(
             SpatialFeature._remove_interior_boundaries(
                 [geometry.Polygon(x) for x in b if len(x) > 2]))
-                               for b in boundaries], fov, zCoordinates)
+                               for b in boundaries], 
+                               fov = fov, 
+                               zCoordinates = zCoordinates,
+                               x = (xmin + xmax) / 2,
+                               y = (ymin + ymax) / 2)
 
     @staticmethod
     def _extract_boundaries(labelMatrix: np.ndarray) -> List[np.ndarray]:
@@ -137,7 +153,7 @@ class SpatialFeature(object):
     def _remove_invalid_boundaries(
             inPolygons: List[geometry.Polygon]) -> List[geometry.Polygon]:
         return [p for p in inPolygons if p.is_valid]
-
+    
     def set_fov(self, newFOV: int) -> None:
         """Update the FOV for this spatial feature.
 
@@ -151,6 +167,9 @@ class SpatialFeature(object):
 
     def get_boundaries(self) -> List[List[geometry.Polygon]]:
         return self._boundaryList
+
+    def get_boundaries_fov(self) -> List[List[geometry.Polygon]]:
+        return self._boundaryListFov
 
     def get_feature_id(self) -> int:
         return self._uniqueID
@@ -423,6 +442,9 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
         featureGroup = h5Group.create_group(featureKey)
         featureGroup.attrs['id'] = np.string_(feature.get_feature_id())
         featureGroup.attrs['fov'] = fov
+        featureGroup.attrs['x'] = feature._x
+        featureGroup.attrs['y'] = feature._y
+        featureGroup.attrs['num_z'] = len(feature.get_z_coordinates())
         featureGroup.attrs['bounding_box'] = \
             np.array(feature.get_bounding_box())
         featureGroup.attrs['volume'] = feature.get_volume()
@@ -456,13 +478,12 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                         zGroup['p_' + str(p)]))
             boundaryList.append(zBoundaryList)
 
-        loadedFeature = SpatialFeature(
-            boundaryList,
-            h5Group.attrs['fov'],
-            np.array(h5Group['z_coordinates']),
-            int(h5Group.attrs['id']))
-
-        return loadedFeature
+        return SpatialFeature(boundaryList = boundaryList,
+                              fov = h5Group.attrs['fov'],
+        	                  zCoordinates = np.array(h5Group['z_coordinates']),
+        	                  uniqueID = h5Group.attrs['id'],
+                              x = h5Group.attrs['x'],
+                              y = h5Group.attrs['y'])
 
     def write_features(self, features: List[SpatialFeature], fov=None) -> None:
         if fov is None:
@@ -542,7 +563,7 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
 
                     columns = list(np.unique(allAttrKeys))
                     df = pandas.DataFrame(data=allAttrValues, columns=columns)
-                    finalDF = df.loc[:, ['fov', 'volume']].copy(deep=True)
+                    finalDF = df.loc[:, ['fov', 'volume', 'x', 'y', 'num_z']].copy(deep=True)
                     finalDF.index = df['id'].str.decode(encoding='utf-8'
                                                         ).values.tolist()
                     boundingBoxDF = pandas.DataFrame(
@@ -762,7 +783,6 @@ def construct_graph(graph, cells, spatialTree, currentFOV, allFOVs, fovBoxes):
                         graph.add_edge(cell.get_feature_id(),
                                        cellToConsider1.get_feature_id())
     return graph
-
 
 def remove_overlapping_cells(graph):
     """
