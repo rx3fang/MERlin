@@ -13,10 +13,18 @@ import pandas
 import networkx as nx
 import rtree
 from scipy.spatial import cKDTree
+import geopandas
 
 from merlin.core import dataset
 from merlin.core import analysistask
 
+
+def flatten(list_of_lists):
+    if len(list_of_lists) == 0:
+        return list_of_lists
+    if isinstance(list_of_lists[0], list):
+        return flatten(list_of_lists[0]) + flatten(list_of_lists[1:])
+    return list_of_lists[:1] + flatten(list_of_lists[1:])
 
 class SpatialFeature(object):
 
@@ -531,7 +539,7 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
 
         self._dataSet.delete_hdf5_file('feature_data', self._analysisTask,
                                        fov, 'features')
-
+                                
     def read_feature_metadata(self, fov: int = None) -> pandas.DataFrame:
         """ Get the metadata for the features stored within this feature
         database.
@@ -582,7 +590,82 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
 
         return finalDF
 
+    def read_feature_geopandas(self, fov: int = None) -> pandas.DataFrame:
+        """ Read features as geopanda object
+        database.
 
+        Args:
+            fov: an index of a fov to only get the features within the
+                specified field of view. If not specified features
+                within all fields of view are returned.
+        Returns: a data frame containing the metadata, including:
+            fov, volume, center_x, center_y, min_x, min_y, max_x, max_y.
+            Coordinates are in microns.
+        """
+        if fov is None:
+            finalDF = pandas.concat([self.read_feature_geopandas(x)
+                                     for x in self._dataSet.get_fovs()], 0)
+
+        else:
+            try:
+                with self._dataSet.open_hdf5_file('r', 'feature_data',
+                                                  self._analysisTask, fov,
+                                                  'features') as f:
+                    
+                    allAttrKeys = []
+                    allAttrValues = []
+                    allAttrGeoms = []
+                    for key in f['featuredata'].keys():
+                        attrNames = list(f['featuredata'][key].attrs.keys())
+                        attrValues = list(f['featuredata'][key].attrs.values())
+                        allAttrKeys.append(attrNames)
+                        allAttrValues.append(attrValues)
+                        h5Group = f['featuredata'][key]
+                        zCount = len([x for x in h5Group.keys() if x.startswith('zIndex_')])
+                        boundaryList = []
+                        for z in range(zCount):
+                            zBoundaryList = []
+                            zGroup = h5Group['zIndex_' + str(z)]
+                            pCount = len([x for x in zGroup.keys() if x[:2] == 'p_'])
+                            for p in range(pCount):
+                                zBoundaryList.append(
+                                    HDF5SpatialFeatureDB._load_geometry_from_hdf5_group(
+                                        zGroup['p_' + str(p)]))
+                            boundaryList.append(zBoundaryList)
+                        geom = geopandas.GeoDataFrame(
+                                geometry = flatten(boundaryList)
+                            ).geometry.unary_union
+                            
+                        allAttrGeoms.append(geom)
+
+                    columns = list(np.unique(allAttrKeys))
+                    df =geopandas.GeoDataFrame(data=allAttrValues, 
+                    					  columns=columns, 
+                    					  geometry=allAttrGeoms)
+
+                    finalDF = df.loc[:, 
+                        ["fov", "num_z", "volume", "x", "y", "geometry"]
+                                                        ].copy(deep=True)
+                    finalDF.index = df['id'].str.decode(encoding='utf-8'
+                                                        ).values.tolist()
+
+                    boundingBoxDF = pandas.DataFrame(
+                        df['bounding_box'].values.tolist(),
+                        index=finalDF.index)
+                    finalDF['center_x'] = \
+                        (boundingBoxDF[0] + boundingBoxDF[2]) / 2
+                    finalDF['center_y'] = \
+                        (boundingBoxDF[1] + boundingBoxDF[3]) / 2
+                    finalDF['min_x'] = boundingBoxDF[0]
+                    finalDF['max_x'] = boundingBoxDF[2]
+                    finalDF['min_y'] = boundingBoxDF[1]
+                    finalDF['max_y'] = boundingBoxDF[3]
+
+            except FileNotFoundError:
+                return geopands.GeoDataFrame()
+
+        return finalDF
+        
 class JSONSpatialFeatureDB(SpatialFeatureDB):
 
     """

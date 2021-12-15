@@ -20,6 +20,7 @@ from typing import Optional
 import h5py
 import tables
 import xmltodict
+import geopandas
 
 from merlin.util import imagereader
 import merlin
@@ -310,6 +311,33 @@ class DataSet(object):
         savePath = self._analysis_result_save_path(
             resultName, analysisTask, resultIndex, subdirectory, '.gpickle')
         return nx.readwrite.gpickle.read_gpickle(savePath)
+
+    def save_geodataframe_to_shp(
+            self, dataframe: geopandas.GeoDataFrame, resultName: str,
+            analysisTask: TaskOrName = None, resultIndex: int = None,
+            subdirectory: str = None, **kwargs) -> None:
+        """Save a geopandas data frame to a shapely file stored in this dataset.
+
+        If a previous geopandas data frame has been save with the same resultName,
+        it will be overwritten
+
+        Args:
+            dataframe: the data frame to save
+            resultName: the name of the output file
+            analysisTask: the analysis task that the dataframe should be
+                saved under. If None, the dataframe is saved to the
+                data set root.
+            resultIndex: index of the dataframe to save or None if no index
+                should be specified
+            subdirectory: subdirectory of the analysis task that the dataframe
+                should be saved to or None if the dataframe should be
+                saved to the root directory for the analysis task.
+            **kwargs: arguments to pass on to 
+        """
+        savePath = self._analysis_result_save_path(
+                resultName, analysisTask, resultIndex, subdirectory)
+        
+        dataframe.to_file(savePath, **kwargs)
 
     def save_dataframe_to_csv(
             self, dataframe: pandas.DataFrame, resultName: str,

@@ -3,6 +3,7 @@ import numpy as np
 from skimage import measure
 from skimage import segmentation
 import rtree
+import geopandas
 from shapely import geometry
 from typing import List, Dict
 from scipy.spatial import cKDTree
@@ -463,6 +464,9 @@ class ExportCellMetadata(analysistask.AnalysisTask):
 
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
+        
+        if 'write_shp' not in self.parameters:
+            self.parameters['write_shp'] = True
 
         self.segmentTask = self.dataSet.load_analysis_task(
             self.parameters['segment_task'])
@@ -481,3 +485,14 @@ class ExportCellMetadata(analysistask.AnalysisTask):
 
         self.dataSet.save_dataframe_to_csv(df, 'feature_metadata',
                                            self.analysisName)
+        
+        if self.parameters['write_shp']:
+            gdf = self.segmentTask.get_feature_database().read_feature_geopandas()
+            self.dataSet.save_geodataframe_to_shp(gdf, 'feature_metadata',
+                                           self.analysisName)
+
+
+
+
+
+
