@@ -14,6 +14,7 @@ $ conda activate merlin
 $ conda install rtree=0.9.4    
 $ conda install pytables=3.6.1   
 $ conda install shapely=1.6.4   
-$ pip install -e MERlin
+$ pip install opencv-python-headless
+$ pip install cellpose
+$ pip --no-cache-dir install -e MERlin
 ```
-

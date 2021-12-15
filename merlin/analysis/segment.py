@@ -305,24 +305,6 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             list(np.unique(np.where(masks == label)[0]))) \
             for label in np.unique(masks) if label != 0 ]
 
-        #feature3D = list()
-        #for i in range(len(zposList)):
-        #    masks3d = np.zeros(dapi_images.shape)
-        #    masks3d[i,:,:] = masks[i,:,:]
-        #    feature2D = []
-        #    for label in np.unique(masks3d):
-        #        if label == 0: continue
-        #        ft = spatialfeature.SpatialFeature.feature_from_label_matrix(
-        #                        masks3d == label, fragmentIndex, 
-        #                        globalTask.fov_to_global_transform(fragmentIndex),
-        #                        [ zposList[i] ])
-        #        ft._uniqueID = "fov_%d_feature_%d_zIndex_%d" % (
-        #                            fragmentIndex, 
-        #                            label, 
-        #                            zposList.index(ft.get_z_coordinates()[0]))
-        #        feature2D.append(ft)
-        #    feature3D.extend(feature2D)
-
         featureDB = self.get_feature_database()
         featureDB.write_features(featureList, fragmentIndex)
 
