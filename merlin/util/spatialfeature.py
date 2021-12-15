@@ -572,8 +572,8 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                     columns = list(np.unique(allAttrKeys))
                     df = pandas.DataFrame(data=allAttrValues, columns=columns)
                     finalDF = df.loc[:, ['fov', 'volume', 'x', 'y', 'num_z']].copy(deep=True)
-                    finalDF.index = df['id'].str.decode(encoding='utf-8'
-                                                        ).values.tolist()
+                    finalDF.index = list(map(str, df['id']))
+
                     boundingBoxDF = pandas.DataFrame(
                         df['bounding_box'].values.tolist(),
                         index=finalDF.index)
@@ -603,7 +603,7 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
             Coordinates are in microns.
         """
         if fov is None:
-            finalDF = pandas.concat([self.read_feature_geopandas(x)
+            finalGDF = pandas.concat([self.read_feature_geopandas(x)
                                      for x in self._dataSet.get_fovs()], 0)
 
         else:
@@ -639,32 +639,31 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                         allAttrGeoms.append(geom)
 
                     columns = list(np.unique(allAttrKeys))
-                    df =geopandas.GeoDataFrame(data=allAttrValues, 
+                    gdf = geopandas.GeoDataFrame(data=allAttrValues, 
                     					  columns=columns, 
                     					  geometry=allAttrGeoms)
 
-                    finalDF = df.loc[:, 
+                    finalGDF = gdf.loc[:, 
                         ["fov", "num_z", "volume", "x", "y", "geometry"]
-                                                        ].copy(deep=True)
-                    finalDF.index = df['id'].str.decode(encoding='utf-8'
-                                                        ).values.tolist()
+                            ].copy(deep=True)
+                    finalGDF.index = list(map(str, gdf['id']))
 
                     boundingBoxDF = pandas.DataFrame(
-                        df['bounding_box'].values.tolist(),
-                        index=finalDF.index)
-                    finalDF['center_x'] = \
+                        gdf['bounding_box'].values.tolist(),
+                        index=finalGDF.index)
+                    finalGDF['center_x'] = \
                         (boundingBoxDF[0] + boundingBoxDF[2]) / 2
-                    finalDF['center_y'] = \
+                    finalGDF['center_y'] = \
                         (boundingBoxDF[1] + boundingBoxDF[3]) / 2
-                    finalDF['min_x'] = boundingBoxDF[0]
-                    finalDF['max_x'] = boundingBoxDF[2]
-                    finalDF['min_y'] = boundingBoxDF[1]
-                    finalDF['max_y'] = boundingBoxDF[3]
+                    finalGDF['min_x'] = boundingBoxDF[0]
+                    finalGDF['max_x'] = boundingBoxDF[2]
+                    finalGDF['min_y'] = boundingBoxDF[1]
+                    finalGDF['max_y'] = boundingBoxDF[3]
 
             except FileNotFoundError:
                 return geopands.GeoDataFrame()
 
-        return finalDF
+        return finalGDF
         
 class JSONSpatialFeatureDB(SpatialFeatureDB):
 
