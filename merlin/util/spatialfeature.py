@@ -105,6 +105,8 @@ class SpatialFeature(object):
         if transformationMatrix is not None:
             boundaries = [SpatialFeature._transform_boundaries(
                 x, transformationMatrix) for x in boundariesFov]
+        else:
+            boundaries = boundariesFov
         
         return SpatialFeature([SpatialFeature._remove_invalid_boundaries(
             SpatialFeature._remove_interior_boundaries(

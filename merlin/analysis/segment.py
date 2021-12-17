@@ -150,9 +150,9 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         if 'min_size' not in self.parameters:
             self.parameters['min_size'] = 10
         if 'connect_distance' not in self.parameters:
-            self.parameters['connect_distance'] = 2
+            self.parameters['connect_distance'] = 3
         if 'n_neighbors' not in self.parameters:
-            self.parameters['n_neighbors'] = 6
+            self.parameters['n_neighbors'] = 5
         if 'model_type' not in self.parameters:
             self.parameters['model_type'] = "cyto2"
         if 'resample' not in self.parameters:
@@ -188,68 +188,71 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             self.parameters['warp_task'])
         return np.array([warpTask.get_aligned_image(fov, channelIndex, z)
                          for z in range(len(self.dataSet.get_z_positions()))])
-    
-    def _connect_features_distance(self,
-                                   features: list = None, 
-                                   n_neighbors: int = 6,
-                                   distance_cutoff: float = 3):
-                      
-        """
-        Connect features for each fov between different zplanes. 
-        If their centroid positions are within distance in distance_cutoff in um, 
-        we consider these features are the same cell. 
-        """
-                                   
+
+    def _connect_2D_masks_to_3D_masks(self, 
+                                     masks2D,
+                                     fragmentIndex,
+                                     n_neighbors,
+                                     distance_cutoff: float = 3.0):
+        
         from sklearn.neighbors import NearestNeighbors
         import numpy as np
         
+        globalTask = self.dataSet.load_analysis_task(
+            self.parameters['global_align_task'])
+        zPos = self.dataSet.get_data_organization().get_z_positions()
+        features = []
+        for i in range(masks2D.shape[0]):
+            masks3D = np.zeros(masks2D.shape)
+            masks3D[i,:,:] = masks2D[i,:,:]
+            # obtain the z index for each feature
+            features_z = [ (i, label, spatialfeature.SpatialFeature.feature_from_label_matrix(
+                    masks3D == label, fragmentIndex, 
+                    globalTask.fov_to_global_transform(fragmentIndex),
+                    list(np.unique(np.where(masks3D == label)[0])))) \
+                    for label in np.unique(masks3D) if label != 0 ]
+            features.extend(features_z)
+        
         # copy the feature list
-        featuresList = features.copy()
+        zIndexList = [ z for z, old_label, ft in features ]
+        oldLabelList = [ old_label for z, old_label, ft in features]
+        featuresList = [ ft for z, old_label, ft in features ]
         
         # get the centroid positions
-        centroids = np.array([[(
-            x.get_bounding_box()[0] + x.get_bounding_box()[2]) / 2 * self.dataSet.get_microns_per_pixel(),
-            (x.get_bounding_box()[1] + x.get_bounding_box()[3]) / 2 * self.dataSet.get_microns_per_pixel(),
-            x.get_z_coordinates()[0]] \
+        centroids = np.array([[
+            (x.get_bounding_box()[0] + x.get_bounding_box()[2]) / 2,
+            (x.get_bounding_box()[1] + x.get_bounding_box()[3]) / 2,
+             zPos[x.get_z_coordinates()[0]]] \
             for x in featuresList ])
-        
+
         # find k nearest neighbours
         nbrs = NearestNeighbors(n_neighbors=n_neighbors, 
                                 algorithm='ball_tree').fit(centroids)
         distances, indices = nbrs.kneighbors(centroids)
         
         # create knn graph
-        graph = np.zeros((len(features), len(features)))
+        graph = np.zeros((len(featuresList), len(featuresList)))
         np.fill_diagonal(graph, 1)
         for i in range(len(indices)):
             idx = indices[i]
             dst = distances[i]
-            zpos_i = features[idx[0]].get_z_coordinates()[0]
+            zpos_i = featuresList[idx[0]].get_z_coordinates()[0]
             for ii, dd in zip(idx, dst):
-                zpos_j = features[ii].get_z_coordinates()[0]
+                zpos_j = featuresList[ii].get_z_coordinates()[0]
                 if dd < distance_cutoff and zpos_i != zpos_j:
                     graph[idx[0],ii] = 1
-        
-        n_components, labels = connected_components(
+
+        n_components, newLabelList = connected_components(
             csgraph=csr_matrix(graph), directed=False, 
             return_labels=True)
         
-        # update feature id
-        for i in range(len(featuresList)):
-            featuresList[i]._uniqueID = "fov_%d_feature_%d_zpos_%0.1f_%d" % (
-                featuresList[i].get_fov(), labels[i], featuresList[i].get_z_coordinates()[0], 
-                featuresList[i].get_feature_id())
+        # update the mask image
+        masks3D = np.zeros(masks2D.shape)
+        for z, o, n in zip(zIndexList, oldLabelList, newLabelList):
+            masks3D[z,masks2D[z,] == o] = n
         
-        return featuresList
+        return masks3D.astype(np.uint16)
         
-        def _connect_mask_images(masks):
-            """ connect the 2D mask images to 3D mask images
-            Convert the 2D mask images to 3D images.
-            mask: 3D numpy matrix
-            featureList: a list of [(newFeatureIndex, zIndex, oldFeatureIndex)]
-            """
-            pass
-
     def _run_analysis(self, fragmentIndex):
         globalTask = self.dataSet.load_analysis_task(
                 self.parameters['global_align_task'])
@@ -259,7 +262,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
                 self.parameters['nuclei_channel_name'])
         cyto_ids = self.dataSet.get_data_organization().get_data_channel_index(
                 self.parameters['cyto_channel_name'])
-        
+
         # read images and perform segmentation
         dapi_images = self._read_image_stack(fragmentIndex, dapi_ids)
         cyto_images = self._read_image_stack(fragmentIndex, cyto_ids)
@@ -273,16 +276,21 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
                                          model_type= self.parameters['model_type'])
         
         # Run the cellpose prediction
-        masks, flows, styles, diams = model.eval(
+        masks2D, flows, styles, diams = model.eval(
             stacked_images, 
-            diameter=self.parameters['diameter'], 
-            do_3D=False, 
-            channels= [2,3], 
+            diameter = self.parameters['diameter'], 
+            do_3D = False, 
+            channels = [2,3], 
             min_size = self.parameters['min_size'],
             resample = self.parameters['resample'], 
-            normalize = self.parameters['normalize'],
-            stitch_threshold = self.parameters['stitch_threshold'])
+            normalize = self.parameters['normalize'])
         
+        # convert the 2D mask matrix to 3D
+        masks = self._connect_2D_masks_to_3D_masks(masks2D,
+                                                   fragmentIndex,
+                                                   n_neighbors = self.parameters['n_neighbors'],
+                                                   distance_cutoff = self.parameters['connect_distance'])
+
         if self.parameters['write_mask_images']:
             maskImageDescription = self.dataSet.analysis_tiff_description(
                     1, len(masks))
