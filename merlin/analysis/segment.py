@@ -218,14 +218,19 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         oldLabelList = [ old_label for z, old_label, ft in features]
         featuresList = [ ft for z, old_label, ft in features ]
         
+        # if there is a single features
+        if len(featuresList) <= 1:
+            return masks2D.astype(np.uint16)
+
         # get the centroid positions
         centroids = np.array([[
             (x.get_bounding_box()[0] + x.get_bounding_box()[2]) / 2,
             (x.get_bounding_box()[1] + x.get_bounding_box()[3]) / 2,
              zPos[x.get_z_coordinates()[0]]] \
             for x in featuresList ])
-
+        
         # find k nearest neighbours
+        n_neighbors = min(n_neighbors, centroids.shape[0])
         nbrs = NearestNeighbors(n_neighbors=n_neighbors, 
                                 algorithm='ball_tree').fit(centroids)
         distances, indices = nbrs.kneighbors(centroids)
