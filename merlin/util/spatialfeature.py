@@ -663,7 +663,7 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                     finalGDF['max_y'] = boundingBoxDF[3]
 
             except FileNotFoundError:
-                return geopands.GeoDataFrame()
+                return geopandas.GeoDataFrame()
 
         return finalGDF
         
