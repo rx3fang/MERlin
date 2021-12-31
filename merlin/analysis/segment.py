@@ -20,6 +20,19 @@ from cellpose import models
 import cellpose
 from shapely.geometry import Point, LineString, Polygon
 
+
+def flatten_list(_2d_list):
+    flat_list = []
+    # Iterate through the outer list
+    for element in _2d_list:
+        if type(element) is list:
+            # If the element is of type list, iterate through the sublist
+            for item in element:
+                flat_list.append(item)
+        else:
+            flat_list.append(element)
+    return flat_list
+    
 class FeatureSavingAnalysisTask(analysistask.ParallelAnalysisTask):
 
     """
@@ -295,15 +308,22 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
                                                    fragmentIndex,
                                                    n_neighbors = self.parameters['n_neighbors'],
                                                    distance_cutoff = self.parameters['connect_distance'])
-
+                                                   
         if self.parameters['write_mask_images']:
+            dapi_images = (dapi_images / dapi_images.max() * 255).astype(np.uint8)
+            cyto_images = (cyto_images / cyto_images.max() * 255).astype(np.uint8)
+
+            maskImages = np.array(flatten_list([[x,y,z] \
+                for x,y,z in zip(masks2D, dapi_images, cyto_images)])
+                ).astype(np.uint8)
+
             maskImageDescription = self.dataSet.analysis_tiff_description(
-                    1, len(masks))
+                    1, len(maskImages))
 
             with self.dataSet.writer_for_analysis_images(
                     self, 'mask', fragmentIndex) as outputTif:
 
-                for maskImage in masks:
+                for maskImage in maskImages:
                     outputTif.save(
                             maskImage, 
                             photometric='MINISBLACK',
@@ -311,7 +331,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
 
         # identify features for each zplane sperately
         zposList = self.dataSet.get_data_organization().get_z_positions()
-        
+
         # obtain the z index for each feature
         featureList = [ spatialfeature.SpatialFeature.feature_from_label_matrix(
             masks == label, fragmentIndex, 
