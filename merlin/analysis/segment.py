@@ -156,26 +156,28 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             self.parameters['nuclei_channel_name'] = 'DAPI'
         if 'cyto_channel_name' not in self.parameters:
             self.parameters['cyto_channel_name'] = 'polyT'
-        if 'use_gpu' not in self.parameters:
-            self.parameters['use_gpu'] = False
+        if 'model_type' not in self.parameters:
+            self.parameters['model_type'] = "cyto2"
         if 'diameter' not in self.parameters:
-            self.parameters['diameter'] = 70
+            self.parameters['diameter'] = 80
+        if 'channel1' not in self.parameters:
+            self.parameters['channel1'] = 2
+        if 'channel2' not in self.parameters:
+            self.parameters['channel2'] = 3
         if 'min_size' not in self.parameters:
-            self.parameters['min_size'] = 10
+            self.parameters['min_size'] = 0
         if 'connect_distance' not in self.parameters:
             self.parameters['connect_distance'] = 3
         if 'n_neighbors' not in self.parameters:
             self.parameters['n_neighbors'] = 5
-        if 'model_type' not in self.parameters:
-            self.parameters['model_type'] = "cyto2"
         if 'resample' not in self.parameters:
-            self.parameters['resample'] = False
+            self.parameters['resample'] = True
         if 'normalize' not in self.parameters:
             self.parameters['normalize'] = True
-        if 'stitch_threshold' not in self.parameters:
-            self.parameters['stitch_threshold'] = 0.5
         if 'write_mask_image' not in self.parameters:
             self.parameters['write_mask_images'] = True
+        if 'use_gpu' not in self.parameters:
+            self.parameters['use_gpu'] = False
 
     def fragment_count(self):
         return len(self.dataSet.get_fovs())
@@ -298,7 +300,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             stacked_images, 
             diameter = self.parameters['diameter'], 
             do_3D = False, 
-            channels = [2,3], 
+            channels = [self.parameters['channel1'],self.parameters['channel2']], 
             min_size = self.parameters['min_size'],
             resample = self.parameters['resample'], 
             normalize = self.parameters['normalize'])
