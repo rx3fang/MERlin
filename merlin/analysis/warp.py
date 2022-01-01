@@ -122,8 +122,9 @@ class Warp(analysistask.ParallelAnalysisTask):
                     transformedImage = transform.warp(
                             inputImage, t, preserve_range=True) \
                         .astype(inputImage.dtype)
+                    transformedImage = transformedImage / transformedImage.max() * 255
                     outputTif.save(
-                            transformedImage, 
+                            transformedImage.astype(np.uint8), 
                             photometric='MINISBLACK',
                             metadata=fiducialImageDescription)
 

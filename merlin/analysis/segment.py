@@ -289,7 +289,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         
         # Combine the images into a stack
         zero_images = np.zeros(dapi_images.shape)
-        stacked_images = np.stack((zero_images, cyto_images, dapi_images), axis=3)
+        stacked_images = np.stack((dapi_images, cyto_images, dapi_images), axis=3)
         
         # Load the cellpose model. 'cyto2' performs better than 'cyto'.
         model = cellpose.models.Cellpose(gpu=self.parameters['use_gpu'], 
@@ -316,7 +316,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             cyto_images = (cyto_images / cyto_images.max() * 255).astype(np.uint8)
 
             maskImages = np.array(flatten_list([[x,y,z] \
-                for x,y,z in zip(masks2D, dapi_images, cyto_images)])
+                for x,y,z in zip(masks, dapi_images, cyto_images)])
                 ).astype(np.uint8)
 
             maskImageDescription = self.dataSet.analysis_tiff_description(
