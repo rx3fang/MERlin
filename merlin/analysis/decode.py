@@ -209,9 +209,12 @@ class Decode(BarcodeSavingParallelAnalysisTask):
                 del normalizedPixelTraces
 
         if self.parameters['write_decoded_images']:
+            imageSize = decodedImages.shape
             self._save_decoded_images(
-                fragmentIndex, zPositionCount, decodedImages, magnitudeImages,
-                distances)
+                fragmentIndex, 1, 
+				decodedImages[0].reshape([1,imageSize[1], imageSize[2]]), 
+                magnitudeImages[0].reshape([1, imageSize[1], imageSize[2]]),
+                distances[0].reshape([1, imageSize[1], imageSize[2]]))
 
         if self.parameters['remove_z_duplicated_barcodes']:
             bcDB = self.get_barcode_database()
