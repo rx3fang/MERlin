@@ -229,9 +229,9 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             features.extend(features_z)
         
         # copy the feature list
-        zIndexList = [ z for z, old_label, ft in features ]
-        oldLabelList = [ old_label for z, old_label, ft in features]
-        featuresList = [ ft for z, old_label, ft in features ]
+        zIndexList = [ z for z, old_label, ft in features if ft != None ]
+        oldLabelList = [ old_label for z, old_label, ft in features if ft != None]
+        featuresList = [ ft for z, old_label, ft in features if ft != None]
         
         # if there is a single features
         if len(featuresList) <= 1:

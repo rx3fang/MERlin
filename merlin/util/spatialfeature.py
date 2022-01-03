@@ -100,6 +100,10 @@ class SpatialFeature(object):
                                        for b in boundariesFov], 
                                        fov = fov, 
                                        zCoordinates = zCoordinates)
+        # fix ValueError: not enough values to unpack (expected 4, got 0)
+        if len(featureLocal.get_bounding_box()) != 4:
+            return None
+
         (xmin, ymin, xmax, ymax) = featureLocal.get_bounding_box()
 
         if transformationMatrix is not None:
