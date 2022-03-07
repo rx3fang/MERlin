@@ -574,6 +574,8 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                         attrValues = list(f['featuredata'][key].attrs.values())
                         allAttrKeys.append(attrNames)
                         allAttrValues.append(attrValues)
+                    if len(allAttrKeys) == 0:
+                        return pandas.DataFrame()
 
                     columns = list(np.unique(allAttrKeys))
                     df = pandas.DataFrame(data=allAttrValues, columns=columns)
