@@ -178,6 +178,8 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             self.parameters['write_mask_images'] = True
         if 'use_gpu' not in self.parameters:
             self.parameters['use_gpu'] = False
+		if 'max_projection' not in self.parameters:
+			self.parameters['max_projection'] = False
 
     def fragment_count(self):
         return len(self.dataSet.get_fovs())
@@ -286,7 +288,13 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         # read images and perform segmentation
         dapi_images = self._read_image_stack(fragmentIndex, dapi_ids)
         cyto_images = self._read_image_stack(fragmentIndex, cyto_ids)
-        
+		
+		# if max projection is true, cell pose will only run on the max projected images
+		# this could be improved if cellposes can run on a single image
+		if self.parameters['max_projection']:
+			dapi_images = np.array([ np.amax(dapi_images, axis=0) for i in range(dapi_images.shape[0]) ]) 
+        	cyto_images = np.array([ np.amax(cyto_images, axis=0) for i in range(cyto_images.shape[0]) ])
+
         # Combine the images into a stack
         zero_images = np.zeros(dapi_images.shape)
         stacked_images = np.stack((dapi_images, cyto_images, dapi_images), axis=3)
