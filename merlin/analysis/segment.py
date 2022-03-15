@@ -167,9 +167,9 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         if 'min_size' not in self.parameters:
             self.parameters['min_size'] = 0
         if 'connect_distance' not in self.parameters:
-            self.parameters['connect_distance'] = 3
+            self.parameters['connect_distance'] = 5
         if 'n_neighbors' not in self.parameters:
-            self.parameters['n_neighbors'] = 5
+            self.parameters['n_neighbors'] = 6
         if 'resample' not in self.parameters:
             self.parameters['resample'] = True
         if 'normalize' not in self.parameters:
@@ -178,8 +178,8 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             self.parameters['write_mask_images'] = True
         if 'use_gpu' not in self.parameters:
             self.parameters['use_gpu'] = False
-		if 'max_projection' not in self.parameters:
-			self.parameters['max_projection'] = False
+        if 'maximum_projection' not in self.parameters:
+            self.parameters['maximum_projection'] = False
 
     def fragment_count(self):
         return len(self.dataSet.get_fovs())
@@ -291,9 +291,9 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
 		
 		# if max projection is true, cell pose will only run on the max projected images
 		# this could be improved if cellposes can run on a single image
-		if self.parameters['max_projection']:
-			dapi_images = np.array([ np.amax(dapi_images, axis=0) for i in range(dapi_images.shape[0]) ]) 
-        	cyto_images = np.array([ np.amax(cyto_images, axis=0) for i in range(cyto_images.shape[0]) ])
+        if self.parameters['maximum_projection']:
+            dapi_images = np.array([ np.amax(dapi_images, axis=0) for i in range(dapi_images.shape[0]) ]) 
+            cyto_images = np.array([ np.amax(cyto_images, axis=0) for i in range(cyto_images.shape[0]) ])
 
         # Combine the images into a stack
         zero_images = np.zeros(dapi_images.shape)
@@ -304,7 +304,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
                                          model_type= self.parameters['model_type'])
         
         # Run the cellpose prediction
-        masks2D, flows, styles, diams = model.eval(
+        masks, flows, styles, diams = model.eval(
             stacked_images, 
             diameter = self.parameters['diameter'], 
             do_3D = False, 
@@ -313,8 +313,11 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             resample = self.parameters['resample'], 
             normalize = self.parameters['normalize'])
         
-        # convert the 2D mask matrix to 3D
-        masks = self._connect_2D_masks_to_3D_masks(masks2D,
+        # if there is only one z plane
+        if len(masks.shape) == 2:
+            masks = masks.reshape(1, masks.shape[0], masks.shape[1])
+          
+        masks = self._connect_2D_masks_to_3D_masks(masks,
                                                    fragmentIndex,
                                                    n_neighbors = self.parameters['n_neighbors'],
                                                    distance_cutoff = self.parameters['connect_distance'])
