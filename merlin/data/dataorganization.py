@@ -314,7 +314,9 @@ class DataOrganization(object):
             self.fileMap['imagePath'] = self.fileMap['imagePath'].apply(
                 self._truncate_file_path)
 
-            self._validate_file_map()
+            # disable validate file map will signficantly speed up
+            # generating filemap.csv file
+            # self._validate_file_map()
 
             self._dataSet.save_dataframe_to_csv(
                     self.fileMap, 'filemap', index=False)
