@@ -511,9 +511,6 @@ class ExportCellMetadata(analysistask.AnalysisTask):
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
         
-        if 'write_shp' not in self.parameters:
-            self.parameters['write_shp'] = True
-
         self.segmentTask = self.dataSet.load_analysis_task(
             self.parameters['segment_task'])
 
@@ -532,13 +529,28 @@ class ExportCellMetadata(analysistask.AnalysisTask):
         self.dataSet.save_dataframe_to_csv(df, 'feature_metadata',
                                            self.analysisName)
         
-        if self.parameters['write_shp']:
-            gdf = self.segmentTask.get_feature_database().read_feature_geopandas()
-            self.dataSet.save_geodataframe_to_shp(gdf, 'feature_metadata',
+class ExportCellBoundaries(analysistask.AnalysisTask):
+    """
+    An analysis task exports cell boundaries as shapely file.
+    """
+
+    def __init__(self, dataSet, parameters=None, analysisName=None):
+        super().__init__(dataSet, parameters, analysisName)
+        
+        self.segmentTask = self.dataSet.load_analysis_task(
+            self.parameters['segment_task'])
+
+    def get_estimated_memory(self):
+        return 2048
+
+    def get_estimated_time(self):
+        return 30
+
+    def get_dependencies(self):
+        return [self.parameters['segment_task']]
+
+    def _run_analysis(self):
+        gdf = self.segmentTask.get_feature_database().read_feature_geopandas()
+        self.dataSet.save_geodataframe_to_shp(gdf, 'feature_metadata',
                                            self.analysisName)
-
-
-
-
-
 

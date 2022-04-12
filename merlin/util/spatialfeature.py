@@ -19,13 +19,6 @@ from merlin.core import dataset
 from merlin.core import analysistask
 
 
-def flatten(list_of_lists):
-    if len(list_of_lists) == 0:
-        return list_of_lists
-    if isinstance(list_of_lists[0], list):
-        return flatten(list_of_lists[0]) + flatten(list_of_lists[1:])
-    return list_of_lists[:1] + flatten(list_of_lists[1:])
-
 class SpatialFeature(object):
 
     """
@@ -567,20 +560,38 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                 with self._dataSet.open_hdf5_file('r', 'feature_data',
                                                   self._analysisTask, fov,
                                                   'features') as f:
+                    print(fov)
                     allAttrKeys = []
                     allAttrValues = []
                     for key in f['featuredata'].keys():
                         attrNames = list(f['featuredata'][key].attrs.keys())
                         attrValues = list(f['featuredata'][key].attrs.values())
-                        allAttrKeys.append(attrNames)
-                        allAttrValues.append(attrValues)
-                    if len(allAttrKeys) == 0:
-                        return pandas.DataFrame()
+                        h5Group = f['featuredata'][key]
+                        zCount = len(np.array(h5Group["z_coordinates"]))
+                        boundaryList = []
+                        for z in np.array(h5Group["z_coordinates"]):
+                            zBoundaryList = []
+                            zGroup = h5Group['zIndex_' + str(z)]
+                            # polygon number
+                            pCount = len([x for x in zGroup.keys() if x[:2] == 'p_'])
+                            # if there is multple polygons exist, we choose the one has the largest area size
+                            for p in range(pCount):
+                                zBoundaryList.append(
+                                    HDF5SpatialFeatureDB._load_geometry_from_hdf5_group(
+                                        zGroup['p_' + str(p)]))
+                            maxIndex = np.array([ x.area for x in zBoundaryList ]).argmax()
+                            boundaryList.append(zBoundaryList[maxIndex])
 
-                    columns = list(np.unique(allAttrKeys))
+                        gdf = geopandas.GeoDataFrame(
+                                geometry = boundaryList)
+                        gdf.geometry =  gdf.buffer(0)
+                        
+                        allAttrKeys.append(attrNames + ["area"])
+                        allAttrValues.append(attrValues + [gdf.area.sum()])
+
+                    columns = allAttrKeys[0]
                     df = pandas.DataFrame(data=allAttrValues, columns=columns)
-                    finalDF = df.loc[:, ['fov', 'volume', 'x', 'y', 'num_z']].copy(deep=True)
-                    finalDF.index = list(map(str, df['id']))
+                    finalDF = df.loc[:, ['id', 'fov', 'num_z', 'area', 'x', 'y']].copy(deep=True)
 
                     boundingBoxDF = pandas.DataFrame(
                         df['bounding_box'].values.tolist(),
@@ -598,22 +609,22 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
 
         return finalDF
 
-    def read_feature_geopandas(self, fov: int = None) -> pandas.DataFrame:
+    def read_feature_geopandas(self, fov: int = None) -> geopandas.GeoDataFrame:
         """ Read features as geopanda object
         database.
-
+        
         Args:
             fov: an index of a fov to only get the features within the
                 specified field of view. If not specified features
                 within all fields of view are returned.
         Returns: a data frame containing the metadata, including:
-            fov, volume, center_x, center_y, min_x, min_y, max_x, max_y.
+            fov, area, center_x, center_y, min_x, min_y, max_x, max_y.
             Coordinates are in microns.
         """
         if fov is None:
             finalGDF = pandas.concat([self.read_feature_geopandas(x)
                                      for x in self._dataSet.get_fovs()], 0)
-
+        
         else:
             try:
                 with self._dataSet.open_hdf5_file('r', 'feature_data',
@@ -623,39 +634,49 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                     allAttrKeys = []
                     allAttrValues = []
                     allAttrGeoms = []
+                    print(fov)
                     for key in f['featuredata'].keys():
                         attrNames = list(f['featuredata'][key].attrs.keys())
                         attrValues = list(f['featuredata'][key].attrs.values())
-                        allAttrKeys.append(attrNames)
-                        allAttrValues.append(attrValues)
                         h5Group = f['featuredata'][key]
-                        zCount = len([x for x in h5Group.keys() if x.startswith('zIndex_')])
+                        zCount = len(np.array(h5Group["z_coordinates"]))
+                        allAttrKeys.extend(attrNames)
+                        
                         boundaryList = []
-                        for z in range(zCount):
+                        for z in np.array(h5Group["z_coordinates"]):
+                            allAttrValues.append(
+                            	attrValues + [z])
+                
                             zBoundaryList = []
                             zGroup = h5Group['zIndex_' + str(z)]
+                            # pCount = polygon number
                             pCount = len([x for x in zGroup.keys() if x[:2] == 'p_'])
                             for p in range(pCount):
                                 zBoundaryList.append(
                                     HDF5SpatialFeatureDB._load_geometry_from_hdf5_group(
                                         zGroup['p_' + str(p)]))
-                            boundaryList.append(zBoundaryList)
+                            # if multple polygons exist for one feature, we choose the one has the largest area size
+                            maxIndex = np.array([ x.area for x in zBoundaryList ]).argmax()
+                            boundaryList.append(zBoundaryList[maxIndex])
+                        
                         geom = geopandas.GeoDataFrame(
-                                geometry = flatten(boundaryList)
-                            ).geometry.unary_union
-                            
-                        allAttrGeoms.append(geom)
-
-                    columns = list(np.unique(allAttrKeys))
+                                geometry = boundaryList
+                                ).geometry
+                        allAttrGeoms.extend(geom)
+                    
+                    columns = list(np.unique(allAttrKeys)) + ["z"]
                     gdf = geopandas.GeoDataFrame(data=allAttrValues, 
                     					  columns=columns, 
                     					  geometry=allAttrGeoms)
-
+                    # avoid invalid polygon
+                    gdf.geometry =  gdf.buffer(0)
+                	
+                    gdf = gdf.assign(area = gdf.area)
+                    gdf.id = list(map(str, gdf['id']))
                     finalGDF = gdf.loc[:, 
-                        ["fov", "num_z", "volume", "x", "y", "geometry"]
+                        ["id", "fov", "area", "x", "y", "z", "geometry"]
                             ].copy(deep=True)
-                    finalGDF.index = list(map(str, gdf['id']))
-
+                    
                     boundingBoxDF = pandas.DataFrame(
                         gdf['bounding_box'].values.tolist(),
                         index=finalGDF.index)
@@ -667,10 +688,10 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                     finalGDF['max_x'] = boundingBoxDF[2]
                     finalGDF['min_y'] = boundingBoxDF[1]
                     finalGDF['max_y'] = boundingBoxDF[3]
-
+                
             except FileNotFoundError:
                 return geopandas.GeoDataFrame()
-
+        
         return finalGDF
         
 class JSONSpatialFeatureDB(SpatialFeatureDB):
