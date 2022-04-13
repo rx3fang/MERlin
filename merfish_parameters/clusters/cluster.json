@@ -1,0 +1,211 @@
+{
+    "__default__" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "24:00:00",
+        "node" : 1,
+        "cpu" : 4,
+        "mem" : 10000,
+        "out" : "%j.out",
+        "err" : "%j.err"
+    },
+    "createMosaic" : {
+    	"partition" : "n1-standard-4",
+	"time" : "5:00:00",
+	"node" : 1,
+	"cpu"  : 1,
+	"mem"  : 10000,
+	"out"  : "outputs/mosaic.out",
+	"err"  : "outputs/mosaic.err"
+    },
+    "registration" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "2:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 3000,
+        "out" : "outputs/registration_%j.out",
+        "err" : "errors/registration_%j.err"
+    },
+    "preprocessing" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "2:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 5000,
+        "out" : "outputs/preprocessing_%j.out",
+        "err" : "errors/preprocessing_%j.err"
+    },
+    "decoding" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "24:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 7000,
+        "out" : "outputs/decoding_%j.out",
+        "err" : "errors/decoding_%j.err"
+    },
+    "extractBarcodes" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "2:00:00",
+        "node" : 1,
+        "cpu": 2,
+        "mem" : 5000,
+        "out" : "outputs/extractBarcodes.out",
+        "err" : "errors/extractBarcodes.err"
+    },
+    "trainPSM" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "3:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 10000,
+        "out" : "outputs/trainPSM.out",
+        "err" : "errors/trainPSM.err"
+    },
+    "extractPixelTraces" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "2:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 3000,
+        "out" : "outputs/extractPixelTraces.out",
+        "err" : "errors/extractPixelTraces.err"
+    },
+    "estimateBitError" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "2:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 3000,
+        "out" : "outputs/estimateBitError.out",
+        "err" : "errors/estimateBitError.err"
+    },	
+    "segmentation_DAPI" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "1:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 3000,
+        "out" : "outputs/segmentation_DAPI_%j.out",
+        "err" : "errors/segmentation_DAPI_%j.err"
+    },
+    "segmentation_polyT" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "1:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 3000,
+        "out" : "outputs/segmentation_polyT_%j.out",
+        "err" : "errors/segmentation_polyT_%j.err"
+    },
+    "exportBarcodes" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "5:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 8000,
+        "out" : "outputs/exportBarcodes.out",
+        "err" : "errors/exportBarcodes.err"
+    },
+    "exportFeatures_DAPI" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "5:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 10000,
+        "out" : "outputs/exportFeatures_DAPI.out",
+        "err" : "errors/exportFeatures_DAPI.err"
+    },
+    "exportFeatures_polyT" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "24:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 10000,
+        "out" : "outputs/exportFeatures_polyT.out",
+        "err" : "errors/exportFeatures_polyT.err"
+    },
+    "filterFeatures" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "24:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 10000,
+        "out" : "outputs/filterFeatures.out",
+        "err" : "errors/filterFeatures.err"
+    },
+    "filterBarcodes" : {
+        "partition": "n1-standard-16",
+        "time" : "24:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 50000,
+        "out" : "outputs/filterBarcodes.out",
+        "err" : "errors/filterBarcodes.err"
+    },
+    "assignBarcodes_DAPI" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "2:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 5000,
+        "out" : "outputs/assignBarcodes_DAPI_%j.out",
+        "err" : "errors/assignBarcodes_DAPI_%j.err"
+    },
+    "combineAssignedBarcodes_DAPI" : {
+        "partition": "n1-standard-4",
+        "time" : "10:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 10000,
+        "out" : "outputs/combineAssignBarcodes_DAPI.out",
+        "err" : "errors/combineAssignBarcodes_DAPI.err"
+    },
+    "combineExportedFeatures_DAPI" : {
+        "partition": "n1-standard-4",
+        "time" : "10:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 10000,
+        "out" : "outputs/combineExportedFeatures_DAPI.out",
+        "err" : "errors/combineExportedFeatures_DAPI.err"
+    },
+    "assignBarcodes_polyT" : {
+        "partition": "n1-standard-4-preemptible",
+        "time" : "2:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 5000,
+        "out" : "outputs/assignBarcodes_polyT_%j.out",
+        "err" : "errors/assignBarcodes_polyT_%j.err"
+    },
+    "filterBarcodesFeature" : {
+        "partition": "n1-standard-16",
+        "time" : "24:00:00",
+        "node" : 1,
+        "cpu": 1,
+        "mem" : 50000,
+        "out" : "outputs/filterBarcodesFeature.out",
+        "err" : "errors/filterBarcodesFeature.err"
+    },
+    "exportGeneFeatureMatrix_DAPI" : {
+        "partition": "n1-standard-16",
+        "time" : "24:00:00",
+        "node" : 1,
+        "cpu": 10,
+        "mem" : 55000,
+        "out" : "outputs/exportGeneFeatureMatrix_DAPI.out",
+        "err" : "errors/exportGeneFeatureMatrix_DAPI.err"
+    },
+    "exportGeneFeatureMatrix_polyT" : {
+        "partition": "n1-standard-16",
+        "time" : "24:00:00",
+        "node" : 1,
+        "cpu": 10,
+        "mem" : 55000,
+        "out" : "outputs/exportGeneFeatureMatrix_polyT.out",
+        "err" : "errors/exportGeneFeatureMatrix_polyT.err"
+    }
+}
+
+

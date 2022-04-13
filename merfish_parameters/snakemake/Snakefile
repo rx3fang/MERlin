@@ -1,0 +1,478 @@
+localrules: all, createAnalysis, cleanup
+
+rule all:
+	input:
+		expand("{analysisPath}/logs/create_analysis.log",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/exportedBarcodes/barcodes.h5",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/filteredBarcodes/barcodes.h5",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/exportedFeatures/DAPI.shp",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/exportedFeatures/polyT.shp",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/filteredFeatures/DAPI.shp",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/filteredFeatures/polyT.shp",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/assignedBarcodes/barcodes_DAPI.h5",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/assignedBarcodes/barcodes_polyT.h5",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/filteredBarcodes/barcodes_polyT.h5",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/filteredBarcodes/barcodes_DAPI.h5",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/exportedGeneFeatureMatrices/DAPI/matrix.mtx",
+			analysisPath = config["global"]["analysisPath"]),
+		
+		expand("{analysisPath}/exportedGeneFeatureMatrices/polyT/matrix.mtx",
+			analysisPath = config["global"]["analysisPath"]),
+
+		expand("{analysisPath}/logs/cleanup.log",
+                        analysisPath = config["global"]["analysisPath"])	
+
+rule createAnalysis:
+	params:
+		md = config["global"]["merfishdecoder"],
+		dataSetName = config["global"]["dataSetName"],
+		codebookName = config["global"]["codebookName"],
+		dataOrganizationName = config["global"]["dataOrganizationName"],
+		microscopeParameterName = config["global"]["microscopeParameterName"],
+		microscopeChromaticAberrationName = config["global"]["microscopeChromaticAberrationName"],
+		positionName = config["global"]["positionName"]
+
+	output:
+		"{analysisPath}/logs/create_analysis.log"
+
+	shell:
+		"""
+		python {params.md} create-analysis \
+			--data-set-name={params.dataSetName} \
+			--codebook-name={params.codebookName} \
+			--data-organization-name={params.dataOrganizationName} \
+			--microscope-parameter-name={params.microscopeParameterName} \
+			--microscope-chromatic-aberration-name={params.microscopeChromaticAberrationName} \
+			--position-name={params.positionName} \
+			--data-home={params.dataHome} \
+			--analysis-home={params.analysisHome} \
+			> {output}
+		"""
+
+rule decoding:
+	input:
+		log  = "{analysisPath}/logs/create_analysis.log",
+		file = "{analysisPath}/pixel_score_machine.pkl"
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		md = config["global"]["merfishdecoder_decode"],
+		psm = "{analysisPath}/pixel_score_machine.pkl",
+		refFrameIndex = config["registration"]["refFrameIndex"],
+		highPassFilterSigma = config["registration"]["highPassFilterSigma"],
+		borderSize = config["decoding"]["borderSize"],
+		magnitudeThreshold = config["decoding"]["magnitudeThreshold"],
+		distanceThreshold = config["decoding"]["distanceThreshold"],
+		barcodesPerCore = config["extractBarcodes"]["barcodesPerCore"],
+		maxCores = 1
+		
+	output:
+		file = "{analysisPath}/extractedBarcodes/fov_{fov}_zpos_{zpos}.h5",
+		log  = "{analysisPath}/extractedBarcodes/fov_{fov}_zpos_{zpos}.log"
+		
+	shell:
+		"""
+		python {params.md} \
+			--data-set-name={params.dataSetName} \
+			--fov={wildcards.fov} \
+			--zpos={wildcards.zpos} \
+			--psm-name={params.psm} \
+			--max-cores={params.maxCores} \
+			--output-name={output.file} \
+			--ref-frame-index={params.refFrameIndex} \
+			--high-pass-filter-sigma={params.highPassFilterSigma} \
+			--border-size={params.borderSize} \
+			--magnitude-threshold={params.magnitudeThreshold} \
+			--distance-threshold={params.distanceThreshold} \
+			> {output.log}
+		"""
+
+rule exportBarcodes:
+	input:
+		expand("{analysisPath}/extractedBarcodes/fov_{fov}_zpos_{zpos}.h5",
+			analysisPath = config["global"]["analysisPath"],
+			fov = range(config["global"]["fovs"]),
+			zpos = config["global"]["zposes"])
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		md = config["global"]["merfishdecoder"]
+
+	output:
+		file = "{analysisPath}/exportedBarcodes/barcodes.h5",
+		log  = "{analysisPath}/exportedBarcodes/barcodes.log"
+
+	shell:
+		"""
+		python {params.md} export-barcodes \
+			--data-set-name={params.dataSetName} \
+			--decoded-barcodes-dir extractedBarcodes \
+			--output-name={output.file} \
+			> {output.log}
+		"""
+
+rule filterBarcodes:
+	input:
+		"{analysisPath}/exportedBarcodes/barcodes.h5"
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		md = config["global"]["merfishdecoder"],
+		fovNum = config["filterBarcodes"]["fovNum"],
+		keepBlankBarcodes = config["filterBarcodes"]["keepBlankBarcodes"],
+		misIdentificationRate = config["filterBarcodes"]["misIdentificationRate"],
+		minAreaSize = config["filterBarcodes"]["minAreaSize"]
+
+	output:
+		file = "{analysisPath}/filteredBarcodes/barcodes.h5",
+		log  = "{analysisPath}/filteredBarcodes/barcodes.log"
+
+	shell:
+		"""
+		python {params.md} filter-barcodes \
+			--data-set-name={params.dataSetName} \
+			--exported-barcodes-name={input} \
+			--output-name={output.file} \
+			--fov-num={params.fovNum} \
+			--keep-blank-barcodes={params.keepBlankBarcodes} \
+			--mis-identification-rate={params.misIdentificationRate} \
+			--min-area-size={params.minAreaSize} \
+			> {output.log}
+		"""
+
+rule segmentation_DAPI:
+	input:
+		"{analysisPath}/logs/create_analysis.log"
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		md = config["global"]["merfishdecoder_segmentation"],
+		featureDiameter = config["segmentation"]["DAPI"]["diameter"],
+		featureModelType = config["segmentation"]["DAPI"]["modelType"],
+		refFrameIndex = config["registration"]["refFrameIndex"],
+		highPassFilterSigma = config["registration"]["highPassFilterSigma"]
+
+	output:
+		file = "{analysisPath}/extractedFeatures/DAPI/fov_{fov}_zpos_{zpos}_DAPI.shp",
+		log  = "{analysisPath}/extractedFeatures/DAPI/fov_{fov}_zpos_{zpos}_DAPI.log"
+
+	shell:
+		"""
+		python {params.md} \
+			--data-set-name={params.dataSetName} \
+			--fov={wildcards.fov} \
+			--zpos={wildcards.zpos} \
+			--output-name={output.file} \
+			--feature-name=DAPI \
+			--feature-diameter={params.featureDiameter} \
+			--feature-model-type={params.featureModelType} \
+			--ref-frame-index={params.refFrameIndex} \
+			--high-pass-filter-sigma={params.highPassFilterSigma} \
+			> {output.log}
+		"""
+
+rule segmentation_polyT:
+	input:
+		"{analysisPath}/logs/create_analysis.log"
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		md = config["global"]["merfishdecoder_segmentation"],
+		featureDiameter = config["segmentation"]["polyT"]["diameter"],
+		featureModelType = config["segmentation"]["polyT"]["modelType"],
+		refFrameIndex = config["registration"]["refFrameIndex"],
+		highPassFilterSigma = config["registration"]["highPassFilterSigma"]
+
+	output:
+		file = "{analysisPath}/extractedFeatures/polyT/fov_{fov}_zpos_{zpos}_polyT.shp",
+		log  = "{analysisPath}/extractedFeatures/polyT/fov_{fov}_zpos_{zpos}_polyT.log"
+
+	shell:
+		"""
+		python {params.md} \
+			--data-set-name={params.dataSetName} \
+			--fov={wildcards.fov} \
+			--zpos={wildcards.zpos} \
+			--output-name={output.file} \
+			--feature-name=polyT \
+			--feature-diameter={params.featureDiameter} \
+			--feature-model-type={params.featureModelType} \
+			--ref-frame-index={params.refFrameIndex} \
+			--high-pass-filter-sigma={params.highPassFilterSigma} \
+			> {output.log}
+		"""
+
+rule exportFeatures_DAPI:
+	input:
+		expand("{analysisPath}/extractedFeatures/DAPI/fov_{fov}_zpos_{zpos}_DAPI.shp",
+			analysisPath = config["global"]["analysisPath"],
+			fov = range(config["global"]["fovs"]),
+			zpos = config["global"]["zposes"])
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		bufferSize = config["exportFeatures"]["bufferSize"],
+		md = config["global"]["merfishdecoder"]
+
+	output:
+		file = "{analysisPath}/exportedFeatures/DAPI.shp",
+		log  = "{analysisPath}/exportedFeatures/DAPI.log"
+
+	shell:
+		"""
+		python {params.md} export-features \
+		        --data-set-name={params.dataSetName} \
+		        --segmented-features-dir=extractedFeatures/DAPI/ \
+		        --output-name={output.file} \
+		        --buffer-size={params.bufferSize} \
+		        > {output.log}
+		"""
+
+rule exportFeatures_polyT:
+	input:
+		expand("{analysisPath}/extractedFeatures/polyT/fov_{fov}_zpos_{zpos}_polyT.shp",
+			analysisPath = config["global"]["analysisPath"],
+			fov = range(config["global"]["fovs"]),
+			zpos = config["global"]["zposes"])
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		bufferSize = config["exportFeatures"]["bufferSize"],
+		md = config["global"]["merfishdecoder"]
+
+	output:
+		file = "{analysisPath}/exportedFeatures/polyT.shp",
+		log  = "{analysisPath}/exportedFeatures/polyT.log"
+
+	shell:
+		"""
+		python {params.md} export-features \
+		        --data-set-name={params.dataSetName} \
+		        --segmented-features-dir=extractedFeatures/polyT/ \
+		        --output-name={output.file} \
+		        --buffer-size={params.bufferSize} \
+		        > {output.log}
+		"""
+
+rule filterFeatures:
+	input:
+		DAPI  = "{analysisPath}/exportedFeatures/DAPI.shp",
+		polyT = "{analysisPath}/exportedFeatures/polyT.shp"
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		borderSize  = config["filterFeatures"]["borderSize"],
+		minZplane   = config["filterFeatures"]["minZplane"],
+		md = config["global"]["merfishdecoder"]
+
+	output:
+		file_DAPI  = "{analysisPath}/filteredFeatures/DAPI.shp",
+		file_polyT = "{analysisPath}/filteredFeatures/polyT.shp",
+		log_DAPI   = "{analysisPath}/logs/filter_features_DAPI.log",
+		log_polyT  = "{analysisPath}/logs/filter_features_polyT.log"
+
+	shell:
+		"""
+		python {params.md} filter-features \
+			--data-set-name={params.dataSetName} \
+			--exported-features-name={input.DAPI} \
+			--output-name={output.file_DAPI} \
+			--border-size={params.borderSize} \
+			--min-zplane={params.minZplane} \
+			> {wildcards.analysisPath}/logs/filter_features_DAPI.log
+		python {params.md} filter-features \
+			--data-set-name={params.dataSetName} \
+			--exported-features-name={input.polyT} \
+			--output-name={output.file_polyT} \
+			--border-size={params.borderSize} \
+			--min-zplane={params.minZplane} \
+			> {wildcards.analysisPath}/logs/filter_features_polyT.log
+		"""
+
+rule assignBarcodes_DAPI:
+	input:
+		barcodes = "{analysisPath}/filteredBarcodes/barcodes.h5",
+		features_DAPI = "{analysisPath}/filteredFeatures/DAPI.shp",
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		md = config["global"]["merfishdecoder"],
+		maxCores = config["assignBarcodes"]["DAPI"]["maxCores"],
+		bufferSize = config["assignBarcodes"]["DAPI"]["bufferSize"]
+
+	output:
+		file = "{analysisPath}/assignedBarcodes/barcodes_DAPI.h5",
+		log  = "{analysisPath}/assignedBarcodes/barcodes_DAPI.log"
+	shell:
+		"""
+		python {params.md} assign-barcodes \
+		        --data-set-name={params.dataSetName} \
+		        --exported-barcodes-name={input.barcodes} \
+		        --exported-features-name={input.features_DAPI} \
+		        --output-name={output.file} \
+		        --max-cores={params.maxCores} \
+		        --buffer-size={params.bufferSize} \
+			> {output.log}
+		"""
+
+rule assignBarcodes_polyT:
+	input:
+		barcodes = "{analysisPath}/filteredBarcodes/barcodes.h5",
+		features_polyT = "{analysisPath}/filteredFeatures/polyT.shp"
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		md = config["global"]["merfishdecoder"],
+		maxCores = config["assignBarcodes"]["DAPI"]["maxCores"],
+		bufferSize = config["assignBarcodes"]["DAPI"]["bufferSize"]
+
+	output:
+		file = "{analysisPath}/assignedBarcodes/barcodes_polyT.h5",
+		log = "{analysisPath}/assignedBarcodes/barcodes_polyT.log",
+		
+	shell:
+		"""
+		python {params.md} assign-barcodes \
+		        --data-set-name={params.dataSetName} \
+		        --exported-barcodes-name={input.barcodes} \
+		        --exported-features-name={input.features_polyT} \
+		        --output-name={output.file} \
+		        --max-cores={params.maxCores} \
+		        --buffer-size={params.bufferSize} \
+		        > {output.log}
+		"""
+
+rule filterBarcodesFeature:
+	input:
+		DAPI  = "{analysisPath}/assignedBarcodes/barcodes_DAPI.h5",
+		polyT = "{analysisPath}/assignedBarcodes/barcodes_polyT.h5"
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		fovNum = config["filterBarcodes"]["fovNum"],
+		md = config["global"]["merfishdecoder"],
+		keepBlankBarcodes = config["filterBarcodes"]["keepBlankBarcodes"],
+		misIdentificationRate = config["filterBarcodes"]["misIdentificationRate"],
+		minAreaSize = config["filterBarcodes"]["minAreaSize"]
+
+	output:
+		file_DAPI  = "{analysisPath}/filteredBarcodes/barcodes_DAPI.h5",
+		file_polyT  = "{analysisPath}/filteredBarcodes/barcodes_polyT.h5",
+		log_DAPI  = "{analysisPath}/filteredBarcodes/barcodes_DAPI.log",
+		log_polyT  = "{analysisPath}/filteredBarcodes/barcodes_polyT.log",
+
+	shell:
+		"""
+		python {params.md} filter-barcodes \
+		        --data-set-name={params.dataSetName} \
+		        --exported-barcodes-name={input.DAPI} \
+		        --output-name={output.file_DAPI} \
+		        --fov-num={params.fovNum} \
+		        --keep-blank-barcodes={params.keepBlankBarcodes} \
+		        --mis-identification-rate={params.misIdentificationRate} \
+		        --min-area-size={params.minAreaSize} \
+		        > {output.log_DAPI}
+
+		python {params.md} filter-barcodes \
+		        --data-set-name={params.dataSetName} \
+		        --exported-barcodes-name={input.polyT} \
+		        --output-name={output.file_polyT} \
+		        --fov-num={params.fovNum} \
+		        --keep-blank-barcodes={params.keepBlankBarcodes} \
+		        --mis-identification-rate={params.misIdentificationRate} \
+		        --min-area-size={params.minAreaSize} \
+		        > {output.log_polyT}
+		"""
+
+rule exportGeneFeatureMatrix_DAPI:
+	input:
+		barcodes  = "{analysisPath}/filteredBarcodes/barcodes_DAPI.h5",
+		features  = "{analysisPath}/filteredFeatures/DAPI.shp"
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		md = config["global"]["merfishdecoder"],
+		maxCores = config["exportGeneFeatureMatrix"]["maxCores"],
+		outputName = "{analysisPath}/exportedGeneFeatureMatrices/DAPI",
+
+	output:
+		matrix  = "{analysisPath}/exportedGeneFeatureMatrices/DAPI/matrix.mtx",
+		feature = "{analysisPath}/exportedGeneFeatureMatrices/DAPI/features.tsv",
+		gene    = "{analysisPath}/exportedGeneFeatureMatrices/DAPI/genes.tsv",
+		log     = "{analysisPath}/exportedGeneFeatureMatrices/DAPI/matrix.log",
+
+	shell:
+		"""
+		python {params.md} export-gene-feature-matrix \
+		        --data-set-name={params.dataSetName} \
+		        --barcodes-name={input.barcodes} \
+				--features-name={input.features} \
+				--output-name={params.outputName} \
+				--max-cores={params.maxCores} \
+		        > {output.log}
+		"""
+
+rule exportGeneFeatureMatrix_polyT:
+	input:
+		barcodes  = "{analysisPath}/filteredBarcodes/barcodes_polyT.h5",
+		features  = "{analysisPath}/filteredFeatures/polyT.shp"
+
+	params:
+		dataSetName = config["global"]["dataSetName"],
+		md = config["global"]["merfishdecoder"],
+		maxCores = config["exportGeneFeatureMatrix"]["maxCores"],
+		outputName = "{analysisPath}/exportedGeneFeatureMatrices/polyT",
+
+	output:
+		matrix  = "{analysisPath}/exportedGeneFeatureMatrices/polyT/matrix.mtx",
+		feature = "{analysisPath}/exportedGeneFeatureMatrices/polyT/features.tsv",
+		gene    = "{analysisPath}/exportedGeneFeatureMatrices/polyT/genes.tsv",
+		log     = "{analysisPath}/exportedGeneFeatureMatrices/polyT/matrix.log",
+
+	shell:
+		"""
+		python {params.md} export-gene-feature-matrix \
+		        --data-set-name={params.dataSetName} \
+		        --barcodes-name={input.barcodes} \
+				--features-name={input.features} \
+				--output-name={params.outputName} \
+				--max-cores={params.maxCores} \
+		        > {output.log}
+		"""
+
+rule cleanup:
+	input:
+		"{analysisPath}/exportedGeneFeatureMatrices/polyT/matrix.mtx",
+		"{analysisPath}/exportedGeneFeatureMatrices/DAPI/matrix.mtx"
+		
+	log:
+		"{analysisPath}/logs/cleanup.log",	
+	
+	shell:
+		"""
+		rm -r {wildcards.analysisPath}/extractedBarcodes/
+		rm -r {wildcards.analysisPath}/extractedFeatures/
+		"""
+
