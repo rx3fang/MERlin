@@ -1,7 +1,7 @@
 import os
 import setuptools
 
-merfishdecoder_version = '0.1.0'
+merfishdecoder_version = '0.2.0'
 
 install_requires = [line.rstrip() for line in open(
     os.path.join(os.path.dirname(__file__), "requirements.txt"))]
