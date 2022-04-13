@@ -560,7 +560,6 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                 with self._dataSet.open_hdf5_file('r', 'feature_data',
                                                   self._analysisTask, fov,
                                                   'features') as f:
-                    print(fov)
                     allAttrKeys = []
                     allAttrValues = []
                     for key in f['featuredata'].keys():
@@ -588,7 +587,9 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                         
                         allAttrKeys.append(attrNames + ["area"])
                         allAttrValues.append(attrValues + [gdf.area.sum()])
-
+                        del boundaryList
+                        del gdf
+                    
                     columns = allAttrKeys[0]
                     df = pandas.DataFrame(data=allAttrValues, columns=columns)
                     finalDF = df.loc[:, ['id', 'fov', 'num_z', 'area', 'x', 'y']].copy(deep=True)
@@ -634,7 +635,6 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                     allAttrKeys = []
                     allAttrValues = []
                     allAttrGeoms = []
-                    print(fov)
                     for key in f['featuredata'].keys():
                         attrNames = list(f['featuredata'][key].attrs.keys())
                         attrValues = list(f['featuredata'][key].attrs.values())

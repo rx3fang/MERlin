@@ -551,6 +551,14 @@ class ExportCellBoundaries(analysistask.AnalysisTask):
 
     def _run_analysis(self):
         gdf = self.segmentTask.get_feature_database().read_feature_geopandas()
-        self.dataSet.save_geodataframe_to_shp(gdf, 'feature_metadata',
+        self.dataSet.save_geodataframe_to_shp(gdf, 'feature_boundaries',
+                                           self.analysisName)
+        gdf_max_list = []
+        for ft_id in set(gdf.id):
+            indexMax = gdf[gdf.id == ft_id].area.argmax()
+            gdf_max_list.append(gdf[gdf.id == ft_id].iloc[[indexMax]])
+        gdf_max = pandas.concat(gdf_max_list, 0)
+
+        self.dataSet.save_geodataframe_to_shp(gdf_max, 'feature_boundaries_max',
                                            self.analysisName)
 
