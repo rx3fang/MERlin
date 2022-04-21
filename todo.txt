@@ -1,0 +1,4 @@
+1. remove deconvolution process in the pipeline
+2. speed up decoding by removing empty pixels
+3. enable decoding of a selected set of FOVs
+4. enable user-provided estimated chromatic corrections
