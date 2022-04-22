@@ -1,5 +1,5 @@
-## MERlin (v0.3.1)
-A MERFISH decoding pipeline forked and modified from original MERlin [pipeline](https://github.com/emanuega/MERlin).
+## MERlin (v0.3.4)
+A MERFISH decoding pipeline.
 
 ## Requirements
 * Linux/Unix
@@ -32,9 +32,3 @@ merlin -a analysis.json \
 	-l illumination_aberration_profile.pkl \
 	dataset
 ```
-
-The detailed information of each input file can be found [here](https://emanuega.github.io/MERlin/usage.html) except for `chromatic_aberration_profile.pkl` and `illumination_aberration_profile.pkl`. 
-
-* `chromatic_aberration_profile.pkl` is a pickle file that provides profile that corrects for the aberrations between different color channels. 
-* `illumination_aberration_profile.pkl` is a pickle file provides profile that corrects for the unflatness of signal intensity in each field of view.
-
