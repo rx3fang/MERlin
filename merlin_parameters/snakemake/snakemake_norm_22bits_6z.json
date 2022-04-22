@@ -1,0 +1,8 @@
+{
+    "cluster": "sbatch --mem={cluster.mem} -A {cluster.account} -p {cluster.partition} -n {cluster.n}  -t {cluster.time} -o {cluster.out} -e {cluster.err} --exclude={cluster.exclude} ",
+    "cluster_config": "/home/r3fang_g_harvard_edu/merlin_parameters/snakemake/clusterconfig_22bits_6z.json",
+    "nodes": 100,
+    "latency_wait": 120,
+    "restart_times": 3
+}
+

@@ -1,0 +1,182 @@
+{
+    "__default__" : {
+        "time" : "2:00:00",
+        "n" : 1,
+        "account" : "r3fang_g_harvard_edu",
+        "partition" : "n1-standard-4-preemptible",
+        "mem" : 5000,
+        "exclude" : "",
+        "out" : "~/merlin_jobs/%j.stdout.txt",
+        "err" : "~/merlin_jobs/%j.stderr.txt"
+    },
+    "AdaptiveFilterBarcodes" : {
+        "mem" : 1000,
+        "time" : "1:00:00"
+    },
+    "Decode" : {
+        "mem" : 5000,
+        "time" : "5:00:00"
+    },
+    "DeconvolutionPreprocess" : {
+        "mem" : 5000,
+        "time" : "1:00:00"
+    },
+    "ExportBarcodes" : {
+        "mem" : 5000,
+        "time" : "2:00:00"
+    },
+    "FiducialCorrelationWarp" : {
+        "mem" : 1000,
+        "time" : "1:00:00"
+    },
+    "FilterBarcodes" : {
+	    "mem" : 10000
+    },
+    "GenerateAdaptiveThreshold" : {
+        "time" : "1:00:00",
+        "mem" : 5000
+    },
+    "mosaic_DAPI" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_DAPI_FOVS" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit1" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit2" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit3" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit4" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit5" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit6" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit7" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit8" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit9" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit10" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit11" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit12" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit13" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit14" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit15" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit16" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit17" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit18" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit19" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit21" : {
+        "time" : "1:00:00"
+    },
+    "mosaic_bit22" : {
+        "time" : "1:00:00"
+    },
+    "SlurmReport" : {
+        "mem" : 10000
+    },
+    "Optimize1" : {
+        "mem" : 10000,
+        "time" : "5:00:00"
+    },
+    "Optimize2" : {
+        "mem" : 10000,
+        "time" : "5:00:00"
+    },
+    "Optimize3" : {
+        "mem" : 10000,
+        "time" : "5:00:00"
+    },
+    "Optimize4" : {
+        "mem" : 10000,
+        "time" : "5:00:00"
+    },
+    "Optimize5" : {
+        "mem" : 10000,
+        "time" : "5:00:00"
+    },
+    "Optimize6" : {
+        "mem" : 10000,
+        "time" : "5:00:00"
+    },
+    "Optimize7" : {
+        "mem" : 10000,
+        "time" : "5:00:00"
+    },
+    "Optimize8" : {
+        "mem" : 10000,
+        "time" : "5:00:00"
+    },
+    "Optimize9" : {
+        "mem" : 10000,
+        "time" : "5:00:00"
+    },
+    "Optimize10" : {
+        "mem" : 10000,
+        "time" : "5:00:00"
+    },
+    "PlotPerformance" : {
+        "mem" : 1000
+    },
+    "SimpleGlobalAlignment" : {
+        "mem" : 1000,
+        "time" : "1:00:00"
+    },
+    "SumSignals" : {
+        "mem" : 3000
+    },
+    "CellPoseSegment" : {
+        "mem" : 5000
+    },
+    "CleanCellBoundaries" : {
+        "mem" : 5000
+    },
+    "CombineCleanedBoundaries" : {
+        "mem" : 5000
+    },
+    "RefineCellDatabases" : {
+        "mem" : 5000
+    },
+    "ExportCellMetadata" : {
+        "mem" : 5000
+    },
+    "PartitionBarcodes" : {
+        "mem" : 5000
+    },
+    "ExportPartitionedBarcodes" : {
+        "mem" : 5000
+    }
+}
