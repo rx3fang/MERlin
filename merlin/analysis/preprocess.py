@@ -182,7 +182,11 @@ class ImageEnhanceProcess(Preprocess):
 
         if 'highpass_sigma' not in self.parameters:
             self.parameters['highpass_sigma'] = 3
-
+        if 'codebook_index' not in self.parameters:
+            self.parameters['codebook_index'] = 0
+        if 'save_pixel_histogram' not in self.parameters:
+            self.parameters['save_pixel_histogram'] = False
+        
         self._highPassSigma = self.parameters['highpass_sigma']
         self._modelName = self.parameters['model_name']
         self._modelBaseDir = self.parameters['model_base_dir']
@@ -220,7 +224,7 @@ class ImageEnhanceProcess(Preprocess):
                 fov, self.dataSet.get_data_organization()
                     .get_data_channel_for_bit(b), zIndex, chromaticCorrector)
                     for b in self.get_codebook().get_bit_names()])
-
+    
     def get_processed_image(
             self, fov: int, dataChannel: int, zIndex: int,
             chromaticCorrector: aberration.ChromaticCorrector = None
@@ -228,7 +232,11 @@ class ImageEnhanceProcess(Preprocess):
         inputImage = self.warpTask.get_aligned_image(fov, dataChannel, zIndex,
                                                      chromaticCorrector)
         
+        imageColor = self.dataSet.get_data_organization()\
+                        .get_data_channel_color(dataChannel)
+        
         return self._preprocess_image(inputImage, imageColor)
+    
     
     def _preprocess_image(
             self, inputImage: np.ndarray, imageColor: str
@@ -251,11 +259,8 @@ class ImageEnhanceProcess(Preprocess):
         # deconvolution
         model = CARE(config = None, name = self._modelName, basedir=self._modelBaseDir)
         predictedImage = model.keras_model.predict(
-            filteredImage.reshape(imageSize[0], imageSize[1], 
-                                  imageSize[2], 1))
-        predictedImage = predictedImage.reshape(imageSize[0], 
-                                                imageSize[1], 
-                                                imageSize[2])
+            filteredImage.reshape(1, imageSize[0], imageSize[1], 1))
+        predictedImage = predictedImage.reshape(imageSize[0], imageSize[1])
         return np.where(predictedImage < 0, 0, predictedImage)
 
     def _high_pass_filter(self, inputImage: np.ndarray) -> np.ndarray:
@@ -264,3 +269,7 @@ class ImageEnhanceProcess(Preprocess):
                                                 highPassFilterSize,
                                                 self._highPassSigma)
         return hpImage.astype(np.float)
+    
+    def _run_analysis(self, fragmentIndex):
+        pass        
+    

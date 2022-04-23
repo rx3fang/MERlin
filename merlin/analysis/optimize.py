@@ -37,6 +37,8 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
             self.parameters['distance_threshold'] = 0.6
         if 'magnitude_threshold' not in self.parameters:
             self.parameters['magnitude_threshold'] = 1        
+        if 'random_seed' not in self.parameters:
+            self.parameters['random_seed'] = 0      
  
         if 'fov_index' in self.parameters:
             logger = self.dataSet.get_logger(self)
@@ -44,9 +46,10 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
 
             self.parameters['fov_per_iteration'] = \
                 len(self.parameters['fov_index'])
-
+                
         else:
             self.parameters['fov_index'] = []
+            np.random.seed(self.parameters['random_seed'])
             for i in range(self.parameters['fov_per_iteration']):
                 fovIndex = int(np.random.choice(
                     list(self.dataSet.get_fovs())))
