@@ -28,6 +28,7 @@ from merlin.core import analysistask
 from merlin.data import dataorganization
 from merlin.data import codebook
 from merlin.util import dataportal
+from csbdeep.models import Config, CARE
 
 
 TaskOrName = Union[analysistask.AnalysisTask, str]
@@ -896,7 +897,8 @@ class ImageDataSet(DataSet):
                  analysisHome: str = None,
                  microscopeParametersName: str = None,
                  microscopeChromaticCorrectionsName: str = None,
-                 microscopeIlluminationCorrectionsName: str = None):
+                 microscopeIlluminationCorrectionsName: str = None,
+                 deepmerfishModelName: str = None):
         """Create a dataset for the specified raw data.
 
         Args:
@@ -933,9 +935,14 @@ class ImageDataSet(DataSet):
             self._import_illumination_corrections(
                 microscopeIlluminationCorrectionsName)
         
+        if deepmerfishModelName is not None:
+            self._import_deepmerfish_model(
+                deepmerfishModelName)
+
         self._load_microscope_parameters()
         self._load_chromatic_corrections()
         self._load_illumination_corrections()
+        self._load_deepmerfish_model()
         
     def get_image_file_names(self):
         return sorted(self.rawDataPortal.list_files(
@@ -1019,7 +1026,27 @@ class ImageDataSet(DataSet):
 
         shutil.copyfile(sourcePath, destPath) 
 
-    
+    def _import_deepmerfish_model(self, modelName):
+
+        destPath = os.sep.join(
+                [self.analysisPath, 'DeepmerfishModel'])
+
+        if not os.path.exists(destPath):
+            shutil.copytree(modelName, destPath) 
+
+    def _load_deepmerfish_model(self):
+
+        path = os.sep.join(
+                [self.analysisPath, 'DeepmerfishModel'])
+        
+        if os.path.exists(path):
+            self.deepmerfishModel = CARE(
+                config = None, 
+                name = os.path.basename(path),
+                basedir = os.path.dirname(path))
+        else:
+            self.deepmerfishModel = None
+        
     def _load_chromatic_corrections(self): 
         
         path = os.sep.join(
@@ -1082,7 +1109,8 @@ class MERFISHDataSet(ImageDataSet):
                  dataHome: str = None, analysisHome: str = None,
                  microscopeParametersName: str = None,
                  microscopeChromaticCorrectionsName: str = None,
-                 microscopeIlluminationCorrectionsName: str = None):
+                 microscopeIlluminationCorrectionsName: str = None,
+                 deepmerfishModelName: str = None):
         """Create a MERFISH dataset for the specified raw data.
 
         Args:
@@ -1115,11 +1143,14 @@ class MERFISHDataSet(ImageDataSet):
                     correction file that specifies the dark stage and flat 
                     field images between color channels of the microscope used
                     to acquire the images represented by this ImageDataSet
+            deepmerfishModelName: the name of the deep merfish model for enhancing image
+                     quality.
         """
         super().__init__(dataDirectoryName, dataHome, analysisHome,
                          microscopeParametersName, 
                          microscopeChromaticCorrectionsName,
-                         microscopeIlluminationCorrectionsName)
+                         microscopeIlluminationCorrectionsName,
+                         deepmerfishModelName)
 
         self.dataOrganization = dataorganization.DataOrganization(
                 self, dataOrganizationName)

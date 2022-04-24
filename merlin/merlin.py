@@ -39,6 +39,8 @@ def build_parser():
                         help='name of the microscope chromatic corrections to use')
     parser.add_argument('-l', '--microscope-illumination-corrections',
                         help='name of the microscope illumination corrections to use')
+    parser.add_argument('-d', '--deepmerfish-model-name',
+                        help='name of the deepmerfish model to use for image enhancement')
     parser.add_argument('-p', '--positions',
                         help='name of the position file to use')
     parser.add_argument('-n', '--core-count', type=int,
@@ -109,6 +111,7 @@ def merlin():
         microscopeParametersName=_clean_string_arg(args.microscope_parameters),
         microscopeChromaticCorrectionsName = _clean_string_arg(args.microscope_chromatic_corrections),
         microscopeIlluminationCorrectionsName = _clean_string_arg(args.microscope_illumination_corrections),
+        deepmerfishModelName = _clean_string_arg(args.deepmerfish_model_name),
         positionFileName=_clean_string_arg(args.positions),
         dataHome=_clean_string_arg(args.data_home),
         analysisHome=_clean_string_arg(args.analysis_home)

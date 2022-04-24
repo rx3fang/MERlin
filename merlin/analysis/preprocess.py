@@ -188,12 +188,10 @@ class ImageEnhanceProcess(Preprocess):
             self.parameters['save_pixel_histogram'] = False
         
         self._highPassSigma = self.parameters['highpass_sigma']
-        self._modelName = self.parameters['model_name']
-        self._modelBaseDir = self.parameters['model_base_dir']
 
         self.warpTask = self.dataSet.load_analysis_task(
             self.parameters['warp_task'])
-
+    
     def fragment_count(self):
         return len(self.dataSet.get_fovs())
 
@@ -256,9 +254,9 @@ class ImageEnhanceProcess(Preprocess):
         filteredImage = self._high_pass_filter(correctedImage)
         
         imageSize = filteredImage.shape
-        # deconvolution
-        model = CARE(config = None, name = self._modelName, basedir=self._modelBaseDir)
-        predictedImage = model.keras_model.predict(
+
+        # enhance image quality using trained model
+        predictedImage = self.dataSet.deepmerfishModel.keras_model.predict(
             filteredImage.reshape(1, imageSize[0], imageSize[1], 1))
         predictedImage = predictedImage.reshape(imageSize[0], imageSize[1])
         return np.where(predictedImage < 0, 0, predictedImage)
