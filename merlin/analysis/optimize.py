@@ -49,7 +49,7 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
                 
         else:
             self.parameters['fov_index'] = []
-            np.random.seed(self.parameters['random_seed'])
+            # np.random.seed(self.parameters['random_seed'])
             for i in range(self.parameters['fov_per_iteration']):
                 fovIndex = int(np.random.choice(
                     list(self.dataSet.get_fovs())))
