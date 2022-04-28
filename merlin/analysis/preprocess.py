@@ -179,15 +179,25 @@ class ImageEnhanceProcess(Preprocess):
 
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
-
+        
         if 'highpass_sigma' not in self.parameters:
             self.parameters['highpass_sigma'] = 3
+        # disable deconvolution
+        if 'decon_sigma' not in self.parameters:
+            self.parameters['decon_sigma'] = -1
+        if 'decon_filter_size' not in self.parameters:
+            self.parameters['decon_filter_size'] = \
+                int(2 * np.ceil(2 * self.parameters['decon_sigma']) + 1)
+        if 'decon_iterations' not in self.parameters:
+            self.parameters['decon_iterations'] = 20
         if 'codebook_index' not in self.parameters:
             self.parameters['codebook_index'] = 0
         if 'save_pixel_histogram' not in self.parameters:
-            self.parameters['save_pixel_histogram'] = False
-        
+            self.parameters['save_pixel_histogram'] = True
+
         self._highPassSigma = self.parameters['highpass_sigma']
+        self._deconSigma = self.parameters['decon_sigma']
+        self._deconIterations = self.parameters['decon_iterations']
 
         self.warpTask = self.dataSet.load_analysis_task(
             self.parameters['warp_task'])
@@ -256,11 +266,21 @@ class ImageEnhanceProcess(Preprocess):
         imageSize = filteredImage.shape
 
         # enhance image quality using trained model
-        predictedImage = self.dataSet.deepmerfishModel.keras_model.predict(
+        predictedImage = self.dataSet.deepmerfishModel[imageColor].keras_model.predict(
             filteredImage.reshape(1, imageSize[0], imageSize[1], 1))
         predictedImage = predictedImage.reshape(imageSize[0], imageSize[1])
-        return np.where(predictedImage < 0, 0, predictedImage)
-
+        
+        predictedImage = np.where(predictedImage < 0, 0, predictedImage)
+        # deconvolution (disabled when _deconSigma is -1)
+        deconFilterSize = self.parameters['decon_filter_size']
+        if self._deconSigma == -1:
+            deconvolvedImage = predictedImage.astype(np.uint16)
+        else:
+            deconvolvedImage = deconvolve.deconvolve_lucyrichardson(
+                predictedImage, deconFilterSize, self._deconSigma,
+                self._deconIterations).astype(np.uint16)
+        return deconvolvedImage
+        
     def _high_pass_filter(self, inputImage: np.ndarray) -> np.ndarray:
         highPassFilterSize = int(2 * np.ceil(2 * self._highPassSigma) + 1)
         hpImage = imagefilters.high_pass_filter(inputImage,

@@ -1035,15 +1035,20 @@ class ImageDataSet(DataSet):
             shutil.copytree(modelName, destPath) 
 
     def _load_deepmerfish_model(self):
-
+        import glob
         path = os.sep.join(
                 [self.analysisPath, 'DeepmerfishModel'])
         
         if os.path.exists(path):
-            self.deepmerfishModel = CARE(
-                config = None, 
-                name = os.path.basename(path),
-                basedir = os.path.dirname(path))
+            model_names = [ os.path.basename(x) \
+                for x in glob.glob(os.path.join(path, '*')) ]
+
+            self.deepmerfishModel = dict(
+                zip(model_names, [ CARE(
+                    config = None, 
+                    name = x,
+                    basedir = path) \
+                for x in model_names ]))
         else:
             self.deepmerfishModel = None
         
