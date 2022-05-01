@@ -1027,12 +1027,17 @@ class ImageDataSet(DataSet):
         shutil.copyfile(sourcePath, destPath) 
 
     def _import_deepmerfish_model(self, modelName):
+        if modelName is not None:
+            if not os.path.exists(modelName):
+                sourcePath = os.sep.join(
+                        [merlin.DEEPMERFISH_PARAMETERS_HOME, 
+                        modelName])
 
         destPath = os.sep.join(
                 [self.analysisPath, 'DeepmerfishModel'])
-
+        
         if not os.path.exists(destPath):
-            shutil.copytree(modelName, destPath) 
+            shutil.copytree(sourcePath, destPath) 
 
     def _load_deepmerfish_model(self):
         import glob

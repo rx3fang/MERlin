@@ -26,6 +26,8 @@ if os.path.exists(envPath):
                 [PARAMETERS_HOME, 'positions'])
         MICROSCOPE_PARAMETERS_HOME = os.sep.join(
                 [PARAMETERS_HOME, 'microscope'])
+        DEEPMERFISH_PARAMETERS_HOME = os.sep.join(
+                [PARAMETERS_HOME, 'deepmerfish'])
         FPKM_HOME = os.sep.join([PARAMETERS_HOME, 'fpkm'])
         SNAKEMAKE_PARAMETERS_HOME = os.sep.join(
             [PARAMETERS_HOME, 'snakemake'])

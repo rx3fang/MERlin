@@ -18,7 +18,7 @@ from merlin.util import barcodefilters
 class BarcodeSavingParallelAnalysisTask(analysistask.ParallelAnalysisTask):
 
     """
-    An abstract analysis class that saves barcodes into a barcode database.
+    An abstract analysis class that barcodes barcodes into a barcode database.
     """
 
     def __init__(self, dataSet: dataset.DataSet, parameters=None,
@@ -51,6 +51,8 @@ class Decode(BarcodeSavingParallelAnalysisTask):
             self.parameters['crop_width'] = 100
         if 'write_decoded_images' not in self.parameters:
             self.parameters['write_decoded_images'] = True
+        if 'write_processed_images' not in self.parameters:
+            self.parameters['write_processed_images'] = False
         if 'minimum_area' not in self.parameters:
             self.parameters['minimum_area'] = 0
         if 'distance_threshold' not in self.parameters:
@@ -161,6 +163,14 @@ class Decode(BarcodeSavingParallelAnalysisTask):
                                    dtype=np.float32)
         distances = np.zeros((zPositionCount, *imageShape), dtype=np.float32)
 
+        if self.parameters['write_processed_images']:
+            processedImages = np.array([ preprocessTask.get_processed_image_set(
+               fragmentIndex, zIndex, chromaticCorrector) \
+                   for zIndex in range(zPositionCount) ])
+            self._save_processed_images(
+                fragmentIndex, zPositionCount, processedImages)
+            del processedImages
+        
         if not decode3d:
             for zIndex in range(zPositionCount):
                 di, pm, d = self._process_independent_z_slice(
@@ -241,6 +251,17 @@ class Decode(BarcodeSavingParallelAnalysisTask):
             decoder, di, pm, npt, d, fov, zIndex)
 
         return di, pm, d
+
+    def _save_processed_images(self, fov: int, zPositionCount: int,
+                             processedImages: np.ndarray) -> None:
+            imageDescription = self.dataSet.analysis_tiff_description(
+                zPositionCount, processedImages.shape[1])
+            with self.dataSet.writer_for_analysis_images(
+                    self, 'processed', fov) as outputTif:
+                for i in range(zPositionCount):
+                    outputTif.save(processedImages[i].astype(np.uint16),
+                                   photometric='MINISBLACK',
+                                   metadata=imageDescription)
 
     def _save_decoded_images(self, fov: int, zPositionCount: int,
                              decodedImages: np.ndarray,

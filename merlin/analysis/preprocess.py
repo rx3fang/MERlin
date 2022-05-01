@@ -11,7 +11,6 @@ from merlin.data import codebook
 from csbdeep.utils import axes_dict, plot_some, plot_history
 from csbdeep.utils.tf import limit_gpu_memory
 from csbdeep.io import load_training_data
-from csbdeep.models import Config, CARE
 
 class Preprocess(analysistask.ParallelAnalysisTask):
 
@@ -138,11 +137,12 @@ class DeconvolutionPreprocess(Preprocess):
                 self._deconIterations).astype(np.uint16)
         return deconvolvedImage
 
-    def _high_pass_filter(self, inputImage: np.ndarray) -> np.ndarray:
-        highPassFilterSize = int(2 * np.ceil(2 * self._highPassSigma) + 1)
+    def _high_pass_filter(self, inputImage: np.ndarray, 
+            _highPassSigma: int = 2) -> np.ndarray:
+        highPassFilterSize = int(2 * np.ceil(2 * _highPassSigma) + 1)
         hpImage = imagefilters.high_pass_filter(inputImage,
                                                 highPassFilterSize,
-                                                self._highPassSigma)
+                                                _highPassSigma)
         return hpImage.astype(np.float)
     
     def _run_analysis(self, fragmentIndex):
@@ -163,7 +163,7 @@ class DeconvolutionPreprocess(Preprocess):
             for i in range(len(self.dataSet.get_z_positions())):
                 inputImage = warpTask.get_aligned_image(
                         fragmentIndex, dataChannel, i)
-                
+
                 imageColor = self.dataSet.get_data_organization()\
                                 .get_data_channel_color(dataChannel)
         
@@ -176,12 +176,13 @@ class DeconvolutionPreprocess(Preprocess):
         self._save_pixel_histogram(pixelHistogram, fragmentIndex)
 
 class ImageEnhanceProcess(Preprocess):
-
+    from csbdeep.models import Config, CARE
+    
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
         
         if 'highpass_sigma' not in self.parameters:
-            self.parameters['highpass_sigma'] = 3
+            self.parameters['highpass_sigma'] = 2
         # disable deconvolution
         if 'decon_sigma' not in self.parameters:
             self.parameters['decon_sigma'] = -1
@@ -245,7 +246,6 @@ class ImageEnhanceProcess(Preprocess):
         
         return self._preprocess_image(inputImage, imageColor)
     
-    
     def _preprocess_image(
             self, inputImage: np.ndarray, imageColor: str
     ) -> np.ndarray:
@@ -260,34 +260,42 @@ class ImageEnhanceProcess(Preprocess):
         correctedImage = np.clip(correctedImage, 
             a_min=0, a_max=correctedImage.max())
 
-        # high pass filter to remove background
-        filteredImage = self._high_pass_filter(correctedImage)
-        
-        imageSize = filteredImage.shape
+        # enhance image quality using pre-trained deep learning model
+        predictedImage = self._predict(correctedImage, 
+            imageColor = imageColor)
 
-        # enhance image quality using trained model
-        predictedImage = self.dataSet.deepmerfishModel[imageColor].keras_model.predict(
-            filteredImage.reshape(1, imageSize[0], imageSize[1], 1))
-        predictedImage = predictedImage.reshape(imageSize[0], imageSize[1])
-        
-        predictedImage = np.where(predictedImage < 0, 0, predictedImage)
+        # high pass filter to remove cellular background
+        filteredImage = self._high_pass_filter(predictedImage, 
+            _highPassSigma = self._highPassSigma)
+
         # deconvolution (disabled when _deconSigma is -1)
         deconFilterSize = self.parameters['decon_filter_size']
         if self._deconSigma == -1:
-            deconvolvedImage = predictedImage.astype(np.uint16)
+            deconvolvedImage = filteredImage.astype(np.uint16)
         else:
             deconvolvedImage = deconvolve.deconvolve_lucyrichardson(
-                predictedImage, deconFilterSize, self._deconSigma,
+                filteredImage, deconFilterSize, self._deconSigma,
                 self._deconIterations).astype(np.uint16)
         return deconvolvedImage
-        
-    def _high_pass_filter(self, inputImage: np.ndarray) -> np.ndarray:
-        highPassFilterSize = int(2 * np.ceil(2 * self._highPassSigma) + 1)
+
+    def _high_pass_filter(self, inputImage: np.ndarray, 
+            _highPassSigma: int = 2) -> np.ndarray:
+        highPassFilterSize = int(2 * np.ceil(2 * _highPassSigma) + 1)
         hpImage = imagefilters.high_pass_filter(inputImage,
                                                 highPassFilterSize,
-                                                self._highPassSigma)
+                                                _highPassSigma)
         return hpImage.astype(np.float)
-    
+
+    def _predict(self, inputImage: np.ndarray, imageColor: str,
+            _highPassSigma: int = 3) -> np.ndarray:
+        
+        filteredImage = self._high_pass_filter(inputImage, _highPassSigma)
+        imageSize = filteredImage.shape
+        predictedImage = self.dataSet.deepmerfishModel[imageColor].keras_model.predict(
+            filteredImage.reshape(1, imageSize[0], imageSize[1], 1))
+        predictedImage = predictedImage.reshape(imageSize[0], imageSize[1])
+        return np.where(predictedImage < 0, 0, predictedImage)
+        
     def _run_analysis(self, fragmentIndex):
         pass        
     
