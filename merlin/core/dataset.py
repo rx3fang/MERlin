@@ -942,7 +942,6 @@ class ImageDataSet(DataSet):
         self._load_microscope_parameters()
         self._load_chromatic_corrections()
         self._load_illumination_corrections()
-        self._load_deepmerfish_model()
         
     def get_image_file_names(self):
         return sorted(self.rawDataPortal.list_files(
