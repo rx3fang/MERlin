@@ -142,6 +142,7 @@ class Decode(BarcodeSavingParallelAnalysisTask):
             scaleFactors = optimizeTask.get_scale_factors()
             backgrounds = optimizeTask.get_backgrounds()
             chromaticCorrector = optimizeTask.get_chromatic_corrector()
+            logreg = optimizeTask.get_pixel_score_machine()
         else:
             codebook = self.get_codebook()
             scaleFactors = np.ones(self.get_codebook().get_bit_count())

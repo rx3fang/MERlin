@@ -4,7 +4,10 @@ from skimage import transform
 from typing import Dict
 from typing import List
 import pandas
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
 
+import merlin
 from merlin.analysis import decode
 from merlin.util import decoding
 from merlin.util import registration
@@ -41,7 +44,8 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
             self.parameters['random_seed'] = -1
         if 'z_index' not in self.parameters:
             self.parameters['z_index'] = -1
- 
+        if 'write_decoded_images' not in self.parameters:
+            self.parameters['write_decoded_images'] = False
         if 'fov_index' in self.parameters:
             logger = self.dataSet.get_logger(self)
             logger.info('Setting fov_per_iteration to length of fov_index')
@@ -124,12 +128,13 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
             magnitudeThreshold=self.parameters['magnitude_threshold'])
         
         # save decoded images
-        imageSize = di.shape
-        self._save_decoded_images(
-            fragmentIndex, 1, 
-			di.reshape([1,imageSize[0], imageSize[1]]), 
-            pm.reshape([1, imageSize[0], imageSize[1]]),
-            d.reshape([1, imageSize[0], imageSize[1]]))
+        if self.parameters['write_decoded_images']:
+            imageSize = di.shape
+            self._save_decoded_images(
+                fragmentIndex, 1, 
+		    	di.reshape([1,imageSize[0], imageSize[1]]), 
+                pm.reshape([1, imageSize[0], imageSize[1]]),
+                d.reshape([1, imageSize[0], imageSize[1]]))
         
         refactors, backgrounds, barcodesSeen = \
             decoder.extract_refactors(
@@ -392,7 +397,55 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
                 scaleFactors, 'scale_factors', self.analysisName)
 
             return scaleFactors
+    
+    def get_pixel_score_machine(self):
+        """Get the final, optimized pixel scoring machine.
+    
+        Returns:
+            a machine learning model.
+        """
+        if not self.is_complete():
+            raise Exception('Analysis is still running. Unable to get pixel '
+                            + 'scoring machine.')
+    
+        try:
+            return self.dataSet.load_pickle_analysis_result(
+                'pixel_score_machine', self.analysisName)
 
+        except (FileNotFoundError, OSError, ValueError):
+            
+            barcodes = self.get_barcode_database().get_barcodes()
+
+            barcodesPos = barcodes[(barcodes.area >= 6) & \
+                 barcodes.barcode_id.isin(self.dataSet.get_codebook().get_coding_indexes())]
+            barcodesNeg = barcodes[(barcodes.area < 6) & \
+                 barcodes.barcode_id.isin(self.dataSet.get_codebook().get_blank_indexes())]
+
+            barcodesPos = barcodesPos.assign(label = 1)
+            barcodesNeg = barcodesNeg.assign(label = 0)
+            
+            sampleSize = min(barcodesNeg.shape[0], barcodesPos.shape[0])
+            barcodesPos = barcodesPos.sample(n=sampleSize, random_state=1)
+            barcodesNeg = barcodesNeg.sample(n=sampleSize, random_state=1)
+
+            data = pandas.concat([barcodesPos, barcodesNeg])
+            data.max_intensity = np.log10(data.max_intensity)
+            X = data[["max_intensity", "min_distance"]]
+            y = data.label
+            
+            X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.1,random_state=0)
+            logreg = LogisticRegression(C=1.0, class_weight=None, dual=False, 
+                   fit_intercept=True, intercept_scaling=1, l1_ratio=None, 
+                   max_iter=100, n_jobs=None, penalty='l2',
+                   random_state=0, solver='liblinear', tol=0.0001, verbose=0,
+                   warm_start=False)
+            logreg.fit(X_train, y_train)
+            
+            self.dataSet.save_pickle_analysis_result(
+                logreg, 'pixel_score_machine', self.analysisName)
+            
+            return logreg
+            
     def get_backgrounds(self) -> np.ndarray:
         if not self.is_complete():
             raise Exception('Analysis is still running. Unable to get ' +
