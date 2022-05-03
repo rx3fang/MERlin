@@ -122,7 +122,15 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
             distanceThreshold=self.parameters['distance_threshold'],
             lowPassSigma=self.parameters['low_pass_sigma'],
             magnitudeThreshold=self.parameters['magnitude_threshold'])
-
+        
+        # save decoded images
+        imageSize = di.shape
+        self._save_decoded_images(
+            fragmentIndex, 1, 
+			di.reshape([1,imageSize[0], imageSize[1]]), 
+            pm.reshape([1, imageSize[0], imageSize[1]]),
+            d.reshape([1, imageSize[0], imageSize[1]]))
+        
         refactors, backgrounds, barcodesSeen = \
             decoder.extract_refactors(
                 di, pm, npt, extractBackgrounds=self.parameters[
@@ -153,7 +161,26 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
         return sorted({dataOrganization.get_data_channel_color(
             dataOrganization.get_data_channel_for_bit(x))
             for x in codebook.get_bit_names()})
-
+    
+    def _save_decoded_images(self, fov: int, zPositionCount: int,
+                             decodedImages: np.ndarray,
+                             magnitudeImages: np.ndarray,
+                             distanceImages: np.ndarray) -> None:
+            imageDescription = self.dataSet.analysis_tiff_description(
+                zPositionCount, 3)
+            with self.dataSet.writer_for_analysis_images(
+                    self, 'decoded', fov) as outputTif:
+                for i in range(zPositionCount):
+                    outputTif.save(decodedImages[i].astype(np.float32),
+                                   photometric='MINISBLACK',
+                                   metadata=imageDescription)
+                    outputTif.save(magnitudeImages[i].astype(np.float32),
+                                   photometric='MINISBLACK',
+                                   metadata=imageDescription)
+                    outputTif.save(distanceImages[i].astype(np.float32),
+                                   photometric='MINISBLACK',
+                                   metadata=imageDescription)
+    
     def _calculate_initial_scale_factors(self) -> np.ndarray:
         preprocessTask = self.dataSet.load_analysis_task(
             self.parameters['preprocess_task'])
