@@ -289,7 +289,7 @@ class ImageEnhanceProcess(Preprocess):
     def _predict(self, inputImage: np.ndarray, imageColor: str,
             _highPassSigma: int = 3) -> np.ndarray:
         
-        filteredImage = self._high_pass_filter(inputImage, _highPassSigma)
+        filteredImage = self._high_pass_filter(inputImage, _highPassSigma).astype(np.uint16)
         imageSize = filteredImage.shape
         predictedImage = self.dataSet.deepmerfishModel[imageColor].keras_model.predict(
             filteredImage.reshape(1, imageSize[0], imageSize[1], 1))

@@ -38,7 +38,9 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
         if 'magnitude_threshold' not in self.parameters:
             self.parameters['magnitude_threshold'] = 1        
         if 'random_seed' not in self.parameters:
-            self.parameters['random_seed'] = 0      
+            self.parameters['random_seed'] = -1
+        if 'z_index' not in self.parameters:
+            self.parameters['z_index'] = -1
  
         if 'fov_index' in self.parameters:
             logger = self.dataSet.get_logger(self)
@@ -46,15 +48,19 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
 
             self.parameters['fov_per_iteration'] = \
                 len(self.parameters['fov_index'])
-                
         else:
             self.parameters['fov_index'] = []
-            # np.random.seed(self.parameters['random_seed'])
+            if self.parameters['random_seed'] != -1:
+                np.random.seed(self.parameters['random_seed'])
+
             for i in range(self.parameters['fov_per_iteration']):
                 fovIndex = int(np.random.choice(
                     list(self.dataSet.get_fovs())))
-                zIndex = int(np.random.choice(
-                    list(range(len(self.dataSet.get_z_positions())))))
+                if self.parameters['z_index'] != -1:
+                    zIndex = self.parameters['z_index']
+                else:
+                    zIndex = int(np.random.choice(
+                        list(range(len(self.dataSet.get_z_positions())))))
                 self.parameters['fov_index'].append([fovIndex, zIndex])
 
     def get_estimated_memory(self):
