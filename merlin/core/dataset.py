@@ -28,7 +28,6 @@ from merlin.core import analysistask
 from merlin.data import dataorganization
 from merlin.data import codebook
 from merlin.util import dataportal
-from csbdeep.models import Config, CARE
 
 
 TaskOrName = Union[analysistask.AnalysisTask, str]
@@ -1040,6 +1039,8 @@ class ImageDataSet(DataSet):
 
     def _load_deepmerfish_model(self):
         import glob
+        from csbdeep.models import Config, CARE
+
         path = os.sep.join(
                 [self.analysisPath, 'DeepmerfishModel'])
         
