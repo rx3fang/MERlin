@@ -53,7 +53,7 @@ class DeconvolutionPreprocess(Preprocess):
         if 'codebook_index' not in self.parameters:
             self.parameters['codebook_index'] = 0
         if 'save_pixel_histogram' not in self.parameters:
-            self.parameters['save_pixel_histogram'] = True
+            self.parameters['save_pixel_histogram'] = False
 
         self._highPassSigma = self.parameters['highpass_sigma']
         self._deconSigma = self.parameters['decon_sigma']
@@ -189,7 +189,7 @@ class ImageEnhanceProcess(Preprocess):
         if 'codebook_index' not in self.parameters:
             self.parameters['codebook_index'] = 0
         if 'save_pixel_histogram' not in self.parameters:
-            self.parameters['save_pixel_histogram'] = True
+            self.parameters['save_pixel_histogram'] = False
 
         self._highPassSigma = self.parameters['highpass_sigma']
         self._deconSigma = self.parameters['decon_sigma']
