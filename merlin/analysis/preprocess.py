@@ -142,7 +142,8 @@ class DeconvolutionPreprocess(Preprocess):
         return hpImage.astype(np.float)
     
     def _run_analysis(self, fragmentIndex):
-        
+        pass 
+
         if not self.parameters['save_pixel_histogram']:
             pass
 
