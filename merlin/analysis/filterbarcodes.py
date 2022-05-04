@@ -5,7 +5,6 @@ from scipy import optimize
 from merlin.core import analysistask
 from merlin.analysis import decode
 
-
 class AbstractFilterBarcodes(decode.BarcodeSavingParallelAnalysisTask):
     """
     An abstract class for filtering barcodes identified by pixel-based decoding.
@@ -62,6 +61,154 @@ class FilterBarcodes(AbstractFilterBarcodes):
                 distanceThreshold=distanceThreshold, fov=fragmentIndex),
             fov=fragmentIndex)
 
+
+class EstimateLikelihoodThreshold(analysistask.AnalysisTask):
+
+    """
+    An analysis task that estimate the loglikelihood threshold
+    for barcodes 
+    """
+
+    def __init__(self, dataSet, parameters=None, analysisName=None):
+        super().__init__(dataSet, parameters, analysisName)
+
+        if 'bins' not in self.parameters:
+            self.parameters['bins'] = 5000
+        if 'fov_num' not in self.parameters:
+            self.parameters['fov_num'] = 50
+        if 'random_seed' not in self.parameters:
+            self.parameters['random_seed'] = 1
+            
+        if 'fov_index' in self.parameters:
+            logger = self.dataSet.get_logger(self)
+            logger.info('Setting fov_per_iteration to length of fov_index')
+
+            self.parameters['fov_num'] = \
+                len(self.parameters['fov_index'])
+        else:
+            self.parameters['fov_index'] = []
+            if self.parameters['random_seed'] != -1:
+                np.random.seed(self.parameters['random_seed'])
+
+            for i in range(self.parameters['fov_num']):
+                fovIndex = int(np.random.choice(
+                    list(self.dataSet.get_fovs())))
+                self.parameters['fov_index'].append(fovIndex)
+        
+        # ensure decode_task is specified
+        decodeTask = self.parameters['decode_task']
+
+    def fragment_count(self):
+        return len(self.dataSet.get_fovs())
+
+    def get_estimated_memory(self):
+        return 5000
+
+    def get_estimated_time(self):
+        return 1800
+
+    def get_dependencies(self):
+        return [self.parameters['run_after_task']]
+    
+    
+    def _run_analysis(self):
+        decodeTask = self.dataSet.load_analysis_task(
+            self.parameters['decode_task'])
+        codebook = decodeTask.get_codebook()
+        barcodeDB = decodeTask.get_barcode_database()
+        
+        barcodes = pandas.concat([ barcodeDB.get_barcodes(fov=fragmentIndex) \
+            for fragmentIndex in self.parameters['fov_index'] ], axis=0)
+
+        barcodes = pandas.concat([ barcodeDB.get_barcodes(fov=fragmentIndex) \
+            for fragmentIndex in range(20)], axis=0)
+        
+        misidentificationRates = self.estimate_lik_err_table(
+            barcodes, codebook, 
+            minScore=barcodes.loglikehood.min(),
+            maxScore=barcodes.loglikehood.max(),
+            bins = self.parameters['bins'])
+        
+        self.dataSet.save_pickle_analysis_result(
+            misidentificationRates, 'misidentification_rates',
+            self.analysisName)
+     
+    def calculate_threshold_for_misidentification_rate(
+            self, targetMisidentificationRate: float) -> float:
+        
+        misidentificationRates = self.dataSet.load_pickle_analysis_result(
+            'misidentification_rates', self.analysisName)
+        
+        return min(np.array(list(misidentificationRates.keys()))[
+                np.array(list(misidentificationRates.values())) <= \
+                    targetMisidentificationRate])
+    
+    def extract_barcodes_with_threshold(self, blankThreshold: float,
+                                        barcodeSet: pandas.DataFrame
+                                        ) -> pandas.DataFrame:
+        return barcodeSet[barcodeSet.loglikehood >= blankThreshold]
+    
+    
+    @staticmethod
+    def estimate_lik_err_table(
+        bd, cb, minScore=0, maxScore=10, bins=1000):
+        
+        scores = np.linspace(minScore, maxScore, bins)
+        blnkBarcodeNum = len(cb.get_blank_indexes())
+        codeBarcodeNum = len(cb.get_coding_indexes()) + len(cb.get_blank_indexes())
+        pvalues = dict()
+        for s in scores:
+            bd = bd[bd.loglikehood >= s]
+            numPos = np.count_nonzero(
+                bd.barcode_id.isin(cb.get_coding_indexes()))
+            numNeg = np.count_nonzero(
+                bd.barcode_id.isin(cb.get_blank_indexes()))
+            numNegPerBarcode = numNeg / blnkBarcodeNum
+            numPosPerBarcode = (numPos + numNeg) / codeBarcodeNum
+            pvalues[s] = numNegPerBarcode / numPosPerBarcode
+        return pvalues
+
+class FilterBarcodesLikelihood(AbstractFilterBarcodes):
+
+    """
+    An analysis task that filters barcodes based on the likelihood of each
+    barcodes estimated based on barcode intensity distance and area.
+    """
+
+    def __init__(self, dataSet, parameters=None, analysisName=None):
+        super().__init__(dataSet, parameters, analysisName)
+
+        if 'misidentification_rate' not in self.parameters:
+            self.parameters['misidentification_rate'] = 0.05
+
+    def fragment_count(self):
+        return len(self.dataSet.get_fovs())
+
+    def get_estimated_memory(self):
+        return 1000
+
+    def get_estimated_time(self):
+        return 30
+
+    def get_dependencies(self):
+        return [self.parameters['adaptive_task'],
+                self.parameters['decode_task']]
+
+    def _run_analysis(self, fragmentIndex):
+        adaptiveTask = self.dataSet.load_analysis_task(
+            self.parameters['adaptive_task'])
+        decodeTask = self.dataSet.load_analysis_task(
+            self.parameters['decode_task'])
+
+        threshold = adaptiveTask.calculate_threshold_for_misidentification_rate(
+            self.parameters['misidentification_rate'])
+
+        bcDatabase = self.get_barcode_database()
+        currentBarcodes = decodeTask.get_barcode_database()\
+            .get_barcodes(fragmentIndex)
+
+        bcDatabase.write_barcodes(adaptiveTask.extract_barcodes_with_threshold(
+            threshold, currentBarcodes), fov=fragmentIndex)
 
 class GenerateAdaptiveThreshold(analysistask.AnalysisTask):
 

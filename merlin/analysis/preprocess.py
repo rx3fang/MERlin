@@ -172,7 +172,6 @@ class DeconvolutionPreprocess(Preprocess):
         self._save_pixel_histogram(pixelHistogram, fragmentIndex)
 
 class ImageEnhanceProcess(Preprocess):
-    from csbdeep.models import Config, CARE
     
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
@@ -285,6 +284,7 @@ class ImageEnhanceProcess(Preprocess):
     def _predict(self, inputImage: np.ndarray, imageColor: str,
             _highPassSigma: int = 3) -> np.ndarray:
         
+        from csbdeep.models import Config, CARE
         self.dataSet._load_deepmerfish_model()
 
         filteredImage = self._high_pass_filter(inputImage, _highPassSigma).astype(np.uint16)
