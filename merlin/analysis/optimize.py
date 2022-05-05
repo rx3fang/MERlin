@@ -415,25 +415,37 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
         except (FileNotFoundError, OSError, ValueError):
             
             barcodes = self.get_barcode_database().get_barcodes()
-
+            # remove barcodes with max intensity less than 1
+            barcodes = barcodes[barcodes.max_intensity > 1]
+            
+            # convert max intensity to log intensity
+            barcodes.max_intensity = np.log10(barcodes.max_intensity)
+            
+            # identify positive and negative barcodes
             barcodesPos = barcodes[(barcodes.area >= 6) & \
                  barcodes.barcode_id.isin(self.dataSet.get_codebook().get_coding_indexes())]
-            barcodesNeg = barcodes[(barcodes.area < 6) & \
+            barcodesNeg = barcodes[(barcodes.area < 4) & \
                  barcodes.barcode_id.isin(self.dataSet.get_codebook().get_blank_indexes())]
 
             barcodesPos = barcodesPos.assign(label = 1)
             barcodesNeg = barcodesNeg.assign(label = 0)
-            
+
+            # sample the same number of pos and neg instances
             sampleSize = min(barcodesNeg.shape[0], barcodesPos.shape[0])
             barcodesPos = barcodesPos.sample(n=sampleSize, random_state=1)
             barcodesNeg = barcodesNeg.sample(n=sampleSize, random_state=1)
 
             data = pandas.concat([barcodesPos, barcodesNeg])
-            data.max_intensity = np.log10(data.max_intensity)
+
             X = data[["max_intensity", "min_distance"]]
             y = data.label
             
-            X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.1,random_state=0)
+            
+            cutoff = np.mean(barcodesNeg.max_intensity) + \
+                1.75 * np.std(barcodesNeg.max_intensity)
+            data.loc[data.max_intensity < cutoff, "label"] = 0
+                        
+            X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.2,random_state=0)
             logreg = LogisticRegression(C=1.0, class_weight=None, dual=False, 
                    fit_intercept=True, intercept_scaling=1, l1_ratio=None, 
                    max_iter=100, n_jobs=None, penalty='l2',
