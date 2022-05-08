@@ -120,9 +120,12 @@ class DeconvolutionPreprocess(Preprocess):
             a_min=0, a_max=correctedImage.max())
 
         # high pass filter to remove background
-        filteredImage = self._high_pass_filter(
-            correctedImage)
-
+        if self._highPassSigma != -1:
+            filteredImage = self._high_pass_filter(
+                correctedImage)
+        else:
+            filteredImage = correctedImage
+            
         # deconvolution (disabled when _deconSigma is -1)
         deconFilterSize = self.parameters['decon_filter_size']
         if self._deconSigma == -1:
@@ -261,8 +264,11 @@ class ImageEnhanceProcess(Preprocess):
             imageColor = imageColor)
 
         # high pass filter to remove cellular background
-        filteredImage = self._high_pass_filter(predictedImage, 
-            _highPassSigma = self._highPassSigma)
+        if self._highPassSigma != -1:
+            filteredImage = self._high_pass_filter(predictedImage, 
+                _highPassSigma = self._highPassSigma)
+        else:
+            filteredImage = predictedImage
 
         # deconvolution (disabled when _deconSigma is -1)
         deconFilterSize = self.parameters['decon_filter_size']
