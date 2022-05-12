@@ -221,10 +221,20 @@ class PixelBasedDecoder(object):
 
         decodedImage[pixelMagnitudes < magnitudeThreshold] = -1
         
+        intensity = np.log10(pixelMagnitudes.flatten())
+        distance = distances.flatten()
         
-        image = np.array([np.log10(pixelMagnitudes.flatten()), 
-                          distances.flatten()]).T
-        pixelProbs = pixelScoreMachine.predict_proba(image)[::,1].reshape(pixelMagnitudes.shape)
+        X = pandas.DataFrame({
+            'intensity': intensity, 
+            'distance': distance,
+            'intensity_2': intensity ** 2, 
+            'distance_2': distance ** 2,
+            'intensity_distance': intensity * distance, 
+            'intensity_distance_2': distance ** 2 * intensity ** 2
+        })
+
+        pixelProbs = pixelScoreMachine.predict_proba(
+            X)[::,1].reshape(pixelMagnitudes.shape)
         pixelProbs[decodedImage == -1] = 0
 
         return decodedImage, pixelMagnitudes, normalizedPixelTraces, distances, pixelProbs
@@ -267,6 +277,7 @@ class PixelBasedDecoder(object):
             a pandas dataframe containing all the barcodes decoded with the
                 specified barcode index
         """
+    
         properties = measure.regionprops(
             measure.label(decodedImage == barcodeIndex),
             intensity_image=pixelMagnitudes,

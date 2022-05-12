@@ -415,16 +415,17 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
         except (FileNotFoundError, OSError, ValueError):
             
             barcodes = self.get_barcode_database().get_barcodes()
-            # remove barcodes with max intensity less than 1
-            barcodes = barcodes[barcodes.max_intensity > 1]
+            # remove barcodes with max intensity less than 1 to avoid 0
+            barcodes = barcodes[barcodes.mean_intensity > 1]
             
             # convert max intensity to log intensity
-            barcodes.max_intensity = np.log10(barcodes.max_intensity)
+            barcodes = barcodes.assign(intensity = np.log10(barcodes.mean_intensity))
+            barcodes = barcodes.assign(distance = barcodes.mean_distance)
             
             # identify positive and negative barcodes
             barcodesPos = barcodes[(barcodes.area >= 6) & \
                  barcodes.barcode_id.isin(self.dataSet.get_codebook().get_coding_indexes())]
-            barcodesNeg = barcodes[(barcodes.area < 4) & \
+            barcodesNeg = barcodes[(barcodes.area <= 2) & \
                  barcodes.barcode_id.isin(self.dataSet.get_codebook().get_blank_indexes())]
 
             barcodesPos = barcodesPos.assign(label = 1)
@@ -436,26 +437,26 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
             barcodesNeg = barcodesNeg.sample(n=sampleSize, random_state=1)
 
             data = pandas.concat([barcodesPos, barcodesNeg])
-
-            X = data[["max_intensity", "min_distance"]]
+            
+            X = data[["intensity", "distance"]]
             y = data.label
+
+            X = X.assign(intensity_2 = X.intensity**2)
+            X = X.assign(distance_2 = X.distance**2)
+            X = X.assign(intensity_distance = X.intensity * X.distance)
+            X = X.assign(intensity_distance_2 = X.intensity**2 * X.distance**2)
             
-            
-            cutoff = np.mean(barcodesNeg.max_intensity) + \
-                1.75 * np.std(barcodesNeg.max_intensity)
-            data.loc[data.max_intensity < cutoff, "label"] = 0
-                        
-            X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.2,random_state=0)
+            X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.1,random_state=0)
             logreg = LogisticRegression(C=1.0, class_weight=None, dual=False, 
                    fit_intercept=True, intercept_scaling=1, l1_ratio=None, 
                    max_iter=100, n_jobs=None, penalty='l2',
-                   random_state=0, solver='liblinear', tol=0.0001, verbose=0,
+                   random_state=0, solver='liblinear', tol=0.001, verbose=0,
                    warm_start=False)
             logreg.fit(X_train, y_train)
-            
+
             self.dataSet.save_pickle_analysis_result(
                 logreg, 'pixel_score_machine', self.analysisName)
-            
+
             return logreg
             
     def get_backgrounds(self) -> np.ndarray:
