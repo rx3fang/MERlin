@@ -147,34 +147,6 @@ class DeconvolutionPreprocess(Preprocess):
     def _run_analysis(self, fragmentIndex):
         pass 
 
-#        if not self.parameters['save_pixel_histogram']:
-#            pass
-#
-#        warpTask = self.dataSet.load_analysis_task(
-#                self.parameters['warp_task'])
-#        
-#        histogramBins = np.arange(0, np.iinfo(np.uint16).max, 1)
-#        pixelHistogram = np.zeros(
-#                (self.get_codebook().get_bit_count(), len(histogramBins)-1))
-#        
-#        for bi, b in enumerate(self.get_codebook().get_bit_names()):
-#            dataChannel = self.dataSet.get_data_organization()\
-#                    .get_data_channel_for_bit(b)
-#            for i in range(len(self.dataSet.get_z_positions())):
-#                inputImage = warpTask.get_aligned_image(
-#                        fragmentIndex, dataChannel, i)
-#
-#                imageColor = self.dataSet.get_data_organization()\
-#                                .get_data_channel_color(dataChannel)
-#        
-#                deconvolvedImage = self._preprocess_image(
-#                    inputImage, imageColor)
-#        
-#                pixelHistogram[bi, :] += np.histogram(
-#                        deconvolvedImage, bins=histogramBins)[0]
-#        
-#        self._save_pixel_histogram(pixelHistogram, fragmentIndex)
-
 class ImageEnhanceProcess(Preprocess):
     
     def __init__(self, dataSet, parameters=None, analysisName=None):
@@ -288,16 +260,15 @@ class ImageEnhanceProcess(Preprocess):
                                                 _highPassSigma)
         return hpImage.astype(np.float)
 
-    def _predict(self, inputImage: np.ndarray, imageColor: str,
-            _highPassSigma: int = 3) -> np.ndarray:
+    def _predict(self, inputImage: np.ndarray, 
+                 imageColor: str) -> np.ndarray:
         
         from csbdeep.models import Config, CARE
         self.dataSet._load_deepmerfish_model()
 
-        filteredImage = self._high_pass_filter(inputImage, _highPassSigma).astype(np.uint16)
-        imageSize = filteredImage.shape
+        imageSize = inputImage.shape
         predictedImage = self.dataSet.deepmerfishModel[imageColor].keras_model.predict(
-            filteredImage.reshape(1, imageSize[0], imageSize[1], 1))
+            inputImage.reshape(1, imageSize[0], imageSize[1], 1))
         predictedImage = predictedImage.reshape(imageSize[0], imageSize[1])
         return np.where(predictedImage < 0, 0, predictedImage)
         
