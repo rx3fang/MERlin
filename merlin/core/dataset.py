@@ -39,19 +39,24 @@ class DataFormatException(Exception):
 
 class DataSet(object):
 
-    def __init__(self, dataDirectoryName: str,
-                 dataHome: str = None, analysisHome: str = None):
+    def __init__(self, 
+                 dataDirectoryName: str,
+                 analysisDirectoryName: str,
+                 dataHome: str = None, 
+                 analysisHome: str = None):
+                 
         """Create a dataset for the specified raw data.
 
         Args:
             dataDirectoryName: the relative directory to the raw data
+            analysisDirectoryName: the relative directory to the analysis folder
             dataHome: the base path to the data. The data is expected
                     to be in dataHome/dataDirectoryName. If dataHome
                     is not specified, DATA_HOME is read from the
                     .env file.
             analysisHome: the base path for storing analysis results. Analysis
                     results for this DataSet will be stored in
-                    analysisHome/dataDirectoryName. If analysisHome is not
+                    analysisHome/analysisDirectoryName. If analysisHome is not
                     specified, ANALYSIS_HOME is read from the .env file.
         """
         if dataHome is None:
@@ -60,6 +65,7 @@ class DataSet(object):
             analysisHome = merlin.ANALYSIS_HOME
 
         self.dataSetName = dataDirectoryName
+        self.analysisSetName = analysisDirectoryName
         self.dataHome = dataHome
         self.analysisHome = analysisHome
 
@@ -70,7 +76,7 @@ class DataSet(object):
             print('The raw data is not available at %s'.format(
                 self.rawDataPath))
 
-        self.analysisPath = os.sep.join([analysisHome, dataDirectoryName])
+        self.analysisPath = os.sep.join([analysisHome, analysisDirectoryName])
         os.makedirs(self.analysisPath, exist_ok=True)
 
         self.logPath = os.sep.join([self.analysisPath, 'logs'])
@@ -892,7 +898,9 @@ class DataSet(object):
 
 class ImageDataSet(DataSet):
 
-    def __init__(self, dataDirectoryName: str, dataHome: str = None,
+    def __init__(self, dataDirectoryName: str, 
+                 analysisDirectoryName: str,
+                 dataHome: str = None,
                  analysisHome: str = None,
                  microscopeParametersName: str = None,
                  microscopeChromaticCorrectionsName: str = None,
@@ -902,13 +910,14 @@ class ImageDataSet(DataSet):
 
         Args:
             dataDirectoryName: the relative directory to the raw data
+            analysisDirectoryName: the relative directory to the analysis folder
             dataHome: the base path to the data. The data is expected
                     to be in dataHome/dataDirectoryName. If dataHome
                     is not specified, DATA_HOME is read from the
                     .env file.
             analysisHome: the base path for storing analysis results. Analysis
                     results for this DataSet will be stored in
-                    analysisHome/dataDirectoryName. If analysisHome is not
+                    analysisHome/analysisDirectoryName. If analysisHome is not
                     specified, ANALYSIS_HOME is read from the .env file.
             microscopeParametersName: the name of the microscope parameters
                     file that specifies properties of the microscope used
@@ -921,7 +930,9 @@ class ImageDataSet(DataSet):
                     correction file that specifies illumination from the dark
                     state and flat field.
         """
-        super().__init__(dataDirectoryName, dataHome, analysisHome)
+        super().__init__(dataDirectoryName, 
+                         analysisDirectoryName, 
+                         dataHome, analysisHome)
 
         if microscopeParametersName is not None:
             self._import_microscope_parameters(microscopeParametersName)
@@ -1114,7 +1125,9 @@ class ImageDataSet(DataSet):
 
 class MERFISHDataSet(ImageDataSet):
 
-    def __init__(self, dataDirectoryName: str, codebookNames: List[str] = None,
+    def __init__(self, dataDirectoryName: str, 
+                 analysisDirectoryName: str, 
+                 codebookNames: List[str] = None,
                  dataOrganizationName: str = None, positionFileName: str = None,
                  dataHome: str = None, analysisHome: str = None,
                  microscopeParametersName: str = None,
@@ -1125,6 +1138,7 @@ class MERFISHDataSet(ImageDataSet):
 
         Args:
             dataDirectoryName: the relative directory to the raw data
+            analysisDirectoryName: the relative directory to the analysis folder
             codebookNames: A list of the names of codebooks to use. The codebook
                     should be present in the analysis parameters
                     directory. Full paths can be provided for codebooks
@@ -1140,7 +1154,7 @@ class MERFISHDataSet(ImageDataSet):
                     .env file.
             analysisHome: the base path for storing analysis results. Analysis
                     results for this DataSet will be stored in
-                    analysisHome/dataDirectoryName. If analysisHome is not
+                    analysisHome/analysisDirectoryName. If analysisHome is not
                     specified, ANALYSIS_HOME is read from the .env file.
             microscopeParametersName: the name of the microscope parameters
                     file that specifies properties of the microscope used
@@ -1156,7 +1170,9 @@ class MERFISHDataSet(ImageDataSet):
             deepmerfishModelName: the name of the deep merfish model for enhancing image
                      quality.
         """
-        super().__init__(dataDirectoryName, dataHome, analysisHome,
+        super().__init__(dataDirectoryName, 
+                         analysisDirectoryName, 
+                         dataHome, analysisHome,
                          microscopeParametersName, 
                          microscopeChromaticCorrectionsName,
                          microscopeIlluminationCorrectionsName,

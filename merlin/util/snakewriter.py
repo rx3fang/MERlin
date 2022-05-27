@@ -74,6 +74,8 @@ class SnakemakeRule(object):
         shellString = self._base_shell_command()
         if isinstance(self._analysisTask, analysistask.ParallelAnalysisTask):
             shellString += ' -i {wildcards.i}'
+        shellString += ' -w ' + self._clean_string(
+            self._analysisTask.dataSet.analysisSetName)
         shellString += ' ' + self._clean_string(
             self._analysisTask.dataSet.dataSetName)
         return self._add_quotes(shellString)
@@ -83,6 +85,8 @@ class SnakemakeRule(object):
         """
         shellString = self._base_shell_command()
         shellString += ' --check-done'
+        shellString += ' -w ' + self._clean_string(
+            self._analysisTask.dataSet.analysisSetName)
         shellString += ' ' + self._clean_string(
             self._analysisTask.dataSet.dataSetName)
         return self._add_quotes(shellString)

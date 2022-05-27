@@ -27,6 +27,8 @@ def build_parser():
                         ' data, analysis, and parameters directories.')
     parser.add_argument('dataset',
                         help='directory where the raw data is stored')
+    parser.add_argument('-w', '--analysis-dir-name',
+                        help='name of the output analysis folder to use')
     parser.add_argument('-a', '--analysis-parameters',
                         help='name of the analysis parameters file to use')
     parser.add_argument('-o', '--data-organization',
@@ -89,11 +91,11 @@ def configure_environment():
     parametersHome = _get_input_path('PARAMETERS_HOME=')
     m.store_env(dataHome, analysisHome, parametersHome)
 
-
 def merlin():
     print('MERlin - the MERFISH decoding pipeline')
     parser = build_parser()
     args, argv = parser.parse_known_args()
+    print(args)
 
     if args.profile:
         profiler = cProfile.Profile()
@@ -105,7 +107,8 @@ def merlin():
         return
 
     dataSet = dataset.MERFISHDataSet(
-        args.dataset,
+        dataDirectoryName=args.dataset,
+        analysisDirectoryName=args.analysis_dir_name,
         dataOrganizationName=_clean_string_arg(args.data_organization),
         codebookNames=args.codebook,
         microscopeParametersName=_clean_string_arg(args.microscope_parameters),
