@@ -182,8 +182,8 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             self.parameters['resample'] = True
         if 'normalize' not in self.parameters:
             self.parameters['normalize'] = False
-        if 'write_mask_image' not in self.parameters:
-            self.parameters['write_mask_images'] = True
+        if 'write_mask_images' not in self.parameters:
+            self.parameters['write_mask_images'] = False
         if 'use_gpu' not in self.parameters:
             self.parameters['use_gpu'] = False
         if 'maximum_projection' not in self.parameters:
@@ -336,7 +336,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             channels = [self.parameters['channel1'],self.parameters['channel2']], 
             resample = self.parameters['resample'], 
             normalize = self.parameters['normalize'])
-        
+
         # if there is only one z plane
         if len(masks.shape) == 2:
             masks = masks.reshape(1, masks.shape[0], masks.shape[1])
