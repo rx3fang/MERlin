@@ -334,7 +334,6 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             do_3D = False, 
             flow_threshold = self.parameters['flow_threshold'],
             channels = [self.parameters['channel1'],self.parameters['channel2']], 
-            min_size = self.parameters['min_size'],
             resample = self.parameters['resample'], 
             normalize = self.parameters['normalize'])
         
