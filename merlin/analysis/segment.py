@@ -12,6 +12,8 @@ from merlin.core import dataset
 from merlin.core import analysistask
 from merlin.util import spatialfeature
 from merlin.util import watershed
+from merlin.util import imagefilters
+
 import pandas
 import networkx as nx
 from scipy.sparse import csr_matrix
@@ -159,11 +161,17 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         if 'model_type' not in self.parameters:
             self.parameters['model_type'] = "cyto2"
         if 'diameter' not in self.parameters:
-            self.parameters['diameter'] = 80
+            self.parameters['diameter'] = 100
         if 'channel1' not in self.parameters:
             self.parameters['channel1'] = 2
         if 'channel2' not in self.parameters:
             self.parameters['channel2'] = 3
+        if 'max_clip' not in self.parameters:
+            self.parameters['max_clip'] = 0.97
+        if 'low_pass_sigma' not in self.parameters:
+            self.parameters['low_pass_sigma'] = 1
+        if 'flow_threshold' not in self.parameters:
+            self.parameters['flow_threshold'] = 0.0
         if 'min_size' not in self.parameters:
             self.parameters['min_size'] = 0
         if 'connect_distance' not in self.parameters:
@@ -173,7 +181,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         if 'resample' not in self.parameters:
             self.parameters['resample'] = True
         if 'normalize' not in self.parameters:
-            self.parameters['normalize'] = True
+            self.parameters['normalize'] = False
         if 'write_mask_image' not in self.parameters:
             self.parameters['write_mask_images'] = True
         if 'use_gpu' not in self.parameters:
@@ -294,7 +302,23 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         if self.parameters['maximum_projection']:
             dapi_images = np.array([ np.amax(dapi_images, axis=0) for i in range(dapi_images.shape[0]) ]) 
             cyto_images = np.array([ np.amax(cyto_images, axis=0) for i in range(cyto_images.shape[0]) ])
+        
+        # apply low pass filter 
+        dapi_images = np.array([ imagefilters.low_pass_filter(
+                x, self.parameters['low_pass_sigma']) \
+            for x in dapi_images ])
+        cyto_images = np.array([ imagefilters.low_pass_filter(
+                x, self.parameters['low_pass_sigma']) \
+            for x in cyto_images ])
 
+        dapi_images[dapi_images > np.quantile(dapi_images, 
+                                              self.parameters['max_clip'])] = \
+                np.quantile(dapi_images, self.parameters['max_clip'])
+        
+        cyto_images[cyto_images > np.quantile(cyto_images, 
+                                              self.parameters['max_clip'])] = \
+                np.quantile(cyto_images, self.parameters['max_clip'])
+        
         # Combine the images into a stack
         zero_images = np.zeros(dapi_images.shape)
         stacked_images = np.stack((dapi_images, cyto_images, dapi_images), axis=3)
@@ -308,6 +332,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             stacked_images, 
             diameter = self.parameters['diameter'], 
             do_3D = False, 
+            flow_threshold = self.parameters['flow_threshold'],
             channels = [self.parameters['channel1'],self.parameters['channel2']], 
             min_size = self.parameters['min_size'],
             resample = self.parameters['resample'], 
