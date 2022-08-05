@@ -55,7 +55,10 @@ class DataOrganization(object):
 
             self.data = pandas.read_csv(
                 filePath,
-                converters={'frame': _parse_int_list, 'zPos': _parse_list})
+                converters={'frame': _parse_int_list, 
+                            'zPos': _parse_list,
+                            'featureFrame': _parse_int_list,
+                            'featurezPos': _parse_list})
             self.data['readoutName'] = self.data['readoutName'].str.strip()
             self._dataSet.save_dataframe_to_csv(
                     self.data, 'dataorganization', index=False)
@@ -63,7 +66,11 @@ class DataOrganization(object):
         else:
             self.data = self._dataSet.load_dataframe_from_csv(
                 'dataorganization',
-                converters={'frame': _parse_int_list, 'zPos': _parse_list})
+                converters={'frame': _parse_int_list, 
+                            'zPos': _parse_list,
+                            'featureFrame': _parse_int_list,
+                            'featurezPos': _parse_list
+                        })
 
         stringColumns = ['readoutName', 'channelName', 'imageType',
                          'imageRegExp', 'fiducialImageType', 'fiducialRegExp']
@@ -175,6 +182,7 @@ class DataOrganization(object):
         """
         return self.data.iloc[dataChannel]['fiducialFrame']
 
+    
     def get_image_filename(self, dataChannel: int, fov: int) -> str:
         """Get the path for the image file that contains the
         images for the specified dataChannel and fov.
@@ -229,6 +237,72 @@ class DataOrganization(object):
         """
         return sorted(np.unique([y for x in self.data['zPos'] for y in x]))
 
+    def get_feature_filename(self, dataChannel: int, fov: int) -> str:
+        """Get the path for the image file that contains the fiducial
+        image for the specified dataChannel and fov.
+
+        Args:
+            dataChannel: index of the data channel
+            fov: index of the field of view
+        Returns:
+            The full path to the image file containing the fiducials
+        """
+
+        imageType = self.data.loc[dataChannel, 'featureImageType']
+        imagingRound = \
+            self.data.loc[dataChannel, 'featureImagingRound']
+        return self._get_image_path(imageType, fov, imagingRound)
+    
+    def get_feature_fiducial_frame_index(self, dataChannel: int) -> int:
+        """Get the index of the frame containing the fiducial image
+            for the specified data channel.
+
+        Args:
+            dataChannel: index of the data channel
+        Returns:
+            The index of the fiducial frame in the corresponding image file
+        """
+        return self.data.iloc[dataChannel]['featureFiducialFrame']
+
+    def get_feature_frame_index(self, dataChannel: int, zPosition: float) -> int:
+        """Get the index of the frame containing the feature image
+        for the specified data channel and z position.
+
+        Args:
+            dataChannel: index of the data channel
+            zPosition: the z position
+        Returns:
+            The index of the frame in the corresponding image file
+        """
+        channelInfo = self.data.iloc[dataChannel]
+        channelZ = channelInfo['featurezPos']
+        if isinstance(channelZ, np.ndarray):
+            zIndex = np.where(channelZ == zPosition)[0]
+            if len(zIndex) == 0:
+                raise Exception('Requested z position not found. Position ' +
+                                'z=%0.2f not found for channel %i'
+                                % (zPosition, dataChannel))
+            else:
+                frameIndex = zIndex[0]
+        else:
+            frameIndex = 0
+
+        frames = channelInfo['featureFrame']
+        if isinstance(frames, np.ndarray):
+            frame = frames[frameIndex]
+        else:
+            frame = frames
+
+        return frame
+
+    def get_feature_z_positions(self) -> List[float]:
+        """Get the z positions present in this data organization.
+
+        Returns:
+            A sorted list of all unique z positions
+        """
+        return sorted(np.unique([y for x in self.data['featurezPos'] for y in x]))
+
     def get_fovs(self) -> np.ndarray:
         return np.unique(self.fileMap['fov'])
 
@@ -274,8 +348,17 @@ class DataOrganization(object):
                 self._truncate_file_path)
 
         except FileNotFoundError:
-            uniqueEntries = self.data.drop_duplicates(
-                subset=['imageType', 'imageRegExp'], keep='first')
+            if 'featureImageType' in self.data:
+                uniqueEntries = self.data.drop_duplicates(
+                    subset=['imageType', 'imageRegExp', 
+                            'fiducialImageType', 'fiducialRegExp',
+                            'featureImageType', 'featureRegExp'], 
+                        keep='first')
+            else:
+                uniqueEntries = self.data.drop_duplicates(
+                    subset=['imageType', 'imageRegExp', 
+                            'fiducialImageType', 'fiducialRegExp'],
+                        keep='first')
 
             uniqueTypes = uniqueEntries['imageType']
             uniqueIndexes = uniqueEntries.index.values.tolist()
@@ -307,8 +390,78 @@ class DataOrganization(object):
                         + 'expression %s for image type %s.'
                         % (self.data.imageRegExp[currentIndex],
                            currentType))
+            fileDataImage = fileData
+            
+            # add this part to allow fiducial image
+            # to be different from image file name
+            uniqueTypes = uniqueEntries['fiducialImageType']
+            uniqueIndexes = uniqueEntries.index.values.tolist()
+            fileNames = self._dataSet.get_image_file_names()
+            if len(fileNames) == 0:
+                raise dataset.DataFormatException(
+                    'No image files found at %s.' % self._dataSet.rawDataPath)
+            fileData = []
+            for currentType, currentIndex in zip(uniqueTypes, uniqueIndexes):
+                matchRE = re.compile(
+                        self.data.imageRegExp[currentIndex])
 
-            self.fileMap = pandas.DataFrame(fileData)
+                matchingFiles = False
+                for currentFile in fileNames:
+                    matchedName = matchRE.match(os.path.split(currentFile)[-1])
+                    if matchedName is not None:
+                        transformedName = matchedName.groupdict()
+                        if transformedName['imageType'] == currentType:
+                            if 'imagingRound' not in transformedName:
+                                transformedName['imagingRound'] = -1
+                            transformedName['imagePath'] = currentFile
+                            matchingFiles = True
+                            fileData.append(transformedName)
+
+                if not matchingFiles:
+                    raise dataset.DataFormatException(
+                        'Unable to identify image files matching regular '
+                        + 'expression %s for image type %s.'
+                        % (self.data.imageRegExp[currentIndex],
+                           currentType))
+            fileDataFiducial = fileData
+            
+            uniqueTypes = uniqueEntries['featureImageType']
+            uniqueIndexes = uniqueEntries.index.values.tolist()
+            fileNames = self._dataSet.get_image_file_names()
+            if len(fileNames) == 0:
+                raise dataset.DataFormatException(
+                    'No image files found at %s.' % self._dataSet.rawDataPath)
+            fileData = []
+            for currentType, currentIndex in zip(uniqueTypes, uniqueIndexes):
+                matchRE = re.compile(
+                        self.data.imageRegExp[currentIndex])
+
+                matchingFiles = False
+                for currentFile in fileNames:
+                    matchedName = matchRE.match(os.path.split(currentFile)[-1])
+                    if matchedName is not None:
+                        transformedName = matchedName.groupdict()
+                        if transformedName['imageType'] == currentType:
+                            if 'imagingRound' not in transformedName:
+                                transformedName['imagingRound'] = -1
+                            transformedName['imagePath'] = currentFile
+                            matchingFiles = True
+                            fileData.append(transformedName)
+
+                if not matchingFiles:
+                    raise dataset.DataFormatException(
+                        'Unable to identify image files matching regular '
+                        + 'expression %s for image type %s.'
+                        % (self.data.imageRegExp[currentIndex],
+                           currentType))
+
+            fileDataFiducial = fileDataFiducial + fileData
+            
+            self.fileMap = pandas.DataFrame(
+                fileDataFiducial + fileDataImage
+                ).drop_duplicates(keep='first')
+
+            #self.fileMap = pandas.DataFrame(fileData)
             self.fileMap[['imagingRound', 'fov']] = \
                 self.fileMap[['imagingRound', 'fov']].astype(int)
             self.fileMap['imagePath'] = self.fileMap['imagePath'].apply(

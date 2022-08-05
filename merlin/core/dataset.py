@@ -1347,6 +1347,17 @@ class MERFISHDataSet(ImageDataSet):
                 self.dataOrganization.get_image_frame_index(
                     dataChannel, zPosition))
 
+    def get_feature_fiducial_image(self, dataChannel, fov):
+        return self.load_image(
+                self.dataOrganization.get_feature_filename(dataChannel, fov),
+                self.dataOrganization.get_feature_fiducial_frame_index(dataChannel))
+
+    def get_feature_image(self, dataChannel, fov, zPosition):
+        return self.load_image(
+                self.dataOrganization.get_feature_filename(dataChannel, fov),
+                self.dataOrganization.get_feature_frame_index(
+                    dataChannel, zPosition))
+    
     def get_fiducial_image(self, dataChannel, fov):
         return self.load_image(
                 self.dataOrganization.get_fiducial_filename(dataChannel, fov),
