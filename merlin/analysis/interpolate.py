@@ -27,9 +27,12 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
         if "write_aligned_feature_images" not in self.parameters:
             self.parameters['write_aligned_feature_images'] = True
 
+        if "highpass_sigma" not in self.parameters:
+            self.parameters['highpass_sigma'] = 10
+
         self.parameters['z_pixel_size_micron'] = \
             float(self.parameters["z_pixel_size_micron"])
-    
+            
     def fragment_count(self):
         return len(self.dataSet.get_fovs())
 
@@ -58,7 +61,7 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
     
         _corr_im = map_coordinates(movie, _coords_3D, order=1)
         return _corr_im.reshape(single_im_size).astype(movie.dtype)
-  
+
     def get_interpolated_image(
             self, fov: int, 
             dataChannel: int, 
@@ -76,10 +79,10 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
     
         zPositions = self.dataSet.get_z_positions()
         zPixelSizeMicron = self.parameters['z_pixel_size_micron']
-        zmax = min(self.dataSet.dataOrganization.get_feature_z_positions())
+        zmax = max(zPositions)
         
         movie = np.zeros([
-            int(zmax / zPixelSizeMicron), 
+            int(zmax / zPixelSizeMicron) + 1, 
             self.dataSet.get_image_dimensions()[0],
             self.dataSet.get_image_dimensions()[1]])
         
@@ -113,7 +116,7 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
         zmax = min(self.dataSet.dataOrganization.get_feature_z_positions())
         
         movie = np.zeros([
-            int(zmax / zPixelSizeMicron), 
+            int(zmax / zPixelSizeMicron) + 1, 
             self.dataSet.get_image_dimensions()[0],
             self.dataSet.get_image_dimensions()[1]])
 
@@ -121,11 +124,11 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             movie[int(z / zPixelSizeMicron)] = \
                 self.dataSet.get_raw_image(dataChannel, fov, z)
         
-        return np.array([ self.interpolate_single_image(
+        return [ self.interpolate_single_image(
                             movie = movie, 
                             zIndex = zPos / zPixelSizeMicron, 
                             shifts = self.get_shift_micron(fov, dataChannel) * zPos) \
-                        for zPos in zPosList ])
+                        for zPos in zPosList ]
 
     def get_transformation(self, fov: int, dataChannel: int=None
                             ) ->np.ndarray:
@@ -153,11 +156,25 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             return shifts[dataChannel]
         else:
             return shifts
-    
-    def _filter(self, inputImages: np.ndarray) -> np.ndarray:
-        median_filter_size = self.parameters['median_filter_size']
-        return np.array([ ndimage.median_filter(x, size=median_filter_size, mode="mirror") \
+
+    def _filter(self, inputImage: np.ndarray) -> np.ndarray:
+        return self._high_pass_filter(self._median_filter(inputImage))
+
+    def _filter_set(self, inputImages: np.ndarray) -> np.ndarray:
+        return np.array([ self._high_pass_filter(self._median_filter(x)) \
             for x in inputImages ])
+
+    def _median_filter(self, inputImage: np.ndarray) -> np.ndarray:
+        median_filter_size = self.parameters['median_filter_size']
+        return ndimage.median_filter(inputImage, 
+            size=median_filter_size, mode="mirror")
+    
+    def _high_pass_filter(self, inputImage: np.ndarray) -> np.ndarray:
+        highPassSigma = self.parameters['highpass_sigma']
+        highPassFilterSize = int(2 * np.ceil(2 * highPassSigma) + 1)
+        return inputImage.astype(float) - cv2.GaussianBlur(
+                inputImage, (highPassFilterSize, highPassFilterSize),
+                highPassSigma, borderType=cv2.BORDER_REPLICATE) 
 
     def get_feature_image_set(self, dataChannel, fov: int):
         return np.array([ self.dataSet.get_feature_image(dataChannel, fov, zpos) \
@@ -204,27 +221,34 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
         f.close()
 
     def _run_analysis(self, fragmentIndex: int):
-        # TODO - this can be more efficient since some images should
-        # use the same alignment if they are from the same imaging round
+
         try:
             shifts3D = self.get_shift_pixel(fragmentIndex);
             shifts2D = self.get_transformation(fragmentIndex);
         except (FileNotFoundError, OSError, ValueError):
             zmax = min(self.dataSet.dataOrganization.get_feature_z_positions())
-            fixImage = np.array([self._filter(self.dataSet.get_feature_fiducial_image(0, fragmentIndex))])
+
+            fixImage = np.array([self._filter(
+                self.dataSet.get_feature_fiducial_image(0, fragmentIndex))
+                                ]);
+
             shifts2D = np.array([registration.phase_cross_correlation(
                 reference_image = fixImage,
-                moving_image = np.array([self._filter(self.dataSet.get_feature_fiducial_image(x, fragmentIndex))]),
+                moving_image = np.array([self._filter(
+                    self.dataSet.get_feature_fiducial_image(x, fragmentIndex))
+                                       ]),
                 upsample_factor = 100)[0] for x in \
-                    self.dataSet.get_data_organization().get_data_channels()])
+                    self.dataSet.get_data_organization().get_data_channels()
+                                ])
             self._save_transformations(
                 shifts2D, fragmentIndex)
             
-            fixImageStack = self._filter(self.get_feature_image_set(0, fragmentIndex))
+            fixImageStack = self._filter_set(self.get_feature_image_set(0, fragmentIndex))
+
             shifts3D = np.array([
                 registration.phase_cross_correlation(
                     reference_image = fixImageStack,
-                    moving_image = self._filter(self.get_feature_image_set(x, fragmentIndex)),
+                    moving_image = self._filter_set(self.get_feature_image_set(x, fragmentIndex)),
                     upsample_factor = 100)[0] for x in \
                     self.dataSet.get_data_organization().get_data_channels()])
 
@@ -232,24 +256,11 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             self._save_shifts(
                 shifts3D, fragmentIndex)
         
-        # write down interpolated images
-        dataChannels = self.dataSet.get_data_organization().get_data_channels()
-        for dataChannel in dataChannels:
-            imageSet = self.get_interpolated_image_set(
-                    fragmentIndex, dataChannel,
-                    self.parameters["z_coordinates_micron"]) 
-            self.writer_for_analysis_images(
-                imageSet, 
-                subdirectory = "interpolatedImages",
-                imageBaseName = "images", 
-                imageIndex = fragmentIndex,
-                dataChannel = dataChannel)
-
         if self.parameters['write_aligned_feature_images']:
             imageSet = []
             dataChannels = self.dataSet.get_data_organization().get_data_channels()
             for dataChannel in dataChannels:
-                featureImages = self._filter(self.get_feature_image_set(dataChannel, fragmentIndex))
+                featureImages = self._filter_set(self.get_feature_image_set(dataChannel, fragmentIndex))
                 transformations_xy = transform.SimilarityTransform(
                     translation=[-shifts2D[dataChannel,2], -shifts2D[dataChannel,1]]) 
                 warpedImages = np.array([ transform.warp(x, transformations_xy, preserve_range=True).astype(featureImages.dtype) \
@@ -268,12 +279,28 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
 
             fiducialImageDescription = self.dataSet.analysis_tiff_description(
                     1, len(dataChannels))
-            
+
             with self.dataSet.writer_for_analysis_images(
-                    self, 'aligned_fiducial_images', fragmentIndex) as outputTif:
+                    self, 'aligned_feature_images', fragmentIndex) as outputTif:
                 for x in imageSet:
                     outputTif.save(
                             x.astype(np.uint16), 
                             photometric='MINISBLACK',
                             metadata=fiducialImageDescription)
 
+        # write down interpolated images
+        dataChannels = self.dataSet.get_data_organization().get_data_channels()
+        for dataChannel in dataChannels:
+            imageSet = self.get_interpolated_image_set(
+                    fragmentIndex, dataChannel,
+                    self.parameters["z_coordinates_micron"]) 
+            
+            fimage = self.dataSet.get_fiducial_image(
+                dataChannel, fragmentIndex)
+
+            self.writer_for_analysis_images(
+                np.array([fimage] + imageSet), 
+                subdirectory = "interpolatedImages",
+                imageBaseName = "images", 
+                imageIndex = fragmentIndex,
+                dataChannel = dataChannel)
