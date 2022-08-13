@@ -425,37 +425,38 @@ class DataOrganization(object):
                            currentType))
             fileDataFiducial = fileData
             
-            uniqueTypes = uniqueEntries['featureImageType']
-            uniqueIndexes = uniqueEntries.index.values.tolist()
-            fileNames = self._dataSet.get_image_file_names()
-            if len(fileNames) == 0:
-                raise dataset.DataFormatException(
-                    'No image files found at %s.' % self._dataSet.rawDataPath)
-            fileData = []
-            for currentType, currentIndex in zip(uniqueTypes, uniqueIndexes):
-                matchRE = re.compile(
-                        self.data.imageRegExp[currentIndex])
-
-                matchingFiles = False
-                for currentFile in fileNames:
-                    matchedName = matchRE.match(os.path.split(currentFile)[-1])
-                    if matchedName is not None:
-                        transformedName = matchedName.groupdict()
-                        if transformedName['imageType'] == currentType:
-                            if 'imagingRound' not in transformedName:
-                                transformedName['imagingRound'] = -1
-                            transformedName['imagePath'] = currentFile
-                            matchingFiles = True
-                            fileData.append(transformedName)
-
-                if not matchingFiles:
+            if 'featureImageType' in uniqueEntries:
+                uniqueTypes = uniqueEntries['featureImageType']
+                uniqueIndexes = uniqueEntries.index.values.tolist()
+                fileNames = self._dataSet.get_image_file_names()
+                if len(fileNames) == 0:
                     raise dataset.DataFormatException(
-                        'Unable to identify image files matching regular '
-                        + 'expression %s for image type %s.'
-                        % (self.data.imageRegExp[currentIndex],
-                           currentType))
-
-            fileDataFiducial = fileDataFiducial + fileData
+                        'No image files found at %s.' % self._dataSet.rawDataPath)
+                fileData = []
+                for currentType, currentIndex in zip(uniqueTypes, uniqueIndexes):
+                    matchRE = re.compile(
+                            self.data.imageRegExp[currentIndex])
+                
+                    matchingFiles = False
+                    for currentFile in fileNames:
+                        matchedName = matchRE.match(os.path.split(currentFile)[-1])
+                        if matchedName is not None:
+                            transformedName = matchedName.groupdict()
+                            if transformedName['imageType'] == currentType:
+                                if 'imagingRound' not in transformedName:
+                                    transformedName['imagingRound'] = -1
+                                transformedName['imagePath'] = currentFile
+                                matchingFiles = True
+                                fileData.append(transformedName)
+                
+                    if not matchingFiles:
+                        raise dataset.DataFormatException(
+                            'Unable to identify image files matching regular '
+                            + 'expression %s for image type %s.'
+                            % (self.data.imageRegExp[currentIndex],
+                               currentType))
+                
+                fileDataFiducial = fileDataFiducial + fileData
             
             self.fileMap = pandas.DataFrame(
                 fileDataFiducial + fileDataImage
