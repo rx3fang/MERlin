@@ -27,8 +27,14 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
         if "write_aligned_feature_images" not in self.parameters:
             self.parameters['write_aligned_feature_images'] = True
 
+        if "write_aligned_images" not in self.parameters:
+            self.parameters['write_aligned_images'] = True
+
         if "highpass_sigma" not in self.parameters:
-            self.parameters['highpass_sigma'] = 10
+            self.parameters['highpass_sigma'] = -1
+
+        if "median_filter_size" not in self.parameters:
+            self.parameters['median_filter_size'] = 2
 
         self.parameters['z_pixel_size_micron'] = \
             float(self.parameters["z_pixel_size_micron"])
@@ -171,6 +177,8 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
     
     def _high_pass_filter(self, inputImage: np.ndarray) -> np.ndarray:
         highPassSigma = self.parameters['highpass_sigma']
+        if highPassSigma == -1:
+            return inputImage
         highPassFilterSize = int(2 * np.ceil(2 * highPassSigma) + 1)
         return inputImage.astype(float) - cv2.GaussianBlur(
                 inputImage, (highPassFilterSize, highPassFilterSize),
@@ -196,29 +204,37 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
                              subdirectory: str,
                              imageBaseName: str, 
                              imageIndex: int,
-                             dataChannel: int
+                             dataChannel: int,
+                             fileType = "tif"
                              ) -> str:
         destPath = self.dataSet.get_analysis_subdirectory(
                 self, subdirectory=subdirectory)
         return os.sep.join([destPath, 
-            imageBaseName+"_"+str(imageIndex)+"_"+str(dataChannel)+'.dax'])
+            imageBaseName+"_"+str(imageIndex)+"_"+str(dataChannel)+'.'+fileType])
 
     def writer_for_analysis_images(self,
                                    movie: np.ndarray,
                                    subdirectory: str,
                                    imageBaseName: str,
                                    imageIndex: int,
-                                   dataChannel: int
+                                   dataChannel: int,
+                                   fileType = 'dax'
                                    ) -> None:
         
         fname = self._analysis_image_name(
                 subdirectory, imageBaseName,
-                imageIndex, dataChannel)
+                imageIndex, dataChannel, 
+                fileType)
         
-        f = imagewriter.DaxWriter(fname)
-        for x in movie.astype(np.uint16):
-            f.addFrame(x)
-        f.close()
+        if fileType == "dax":
+            f = imagewriter.DaxWriter(fname)
+            for x in movie.astype(np.uint16):
+                f.addFrame(x)
+            f.close()
+        else:
+            tifffile.imwrite(
+                data=movie.astype(np.uint16),
+                file=fname)
 
     def _run_analysis(self, fragmentIndex: int):
 
@@ -226,7 +242,6 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             shifts3D = self.get_shift_pixel(fragmentIndex);
             shifts2D = self.get_transformation(fragmentIndex);
         except (FileNotFoundError, OSError, ValueError):
-            zmax = min(self.dataSet.dataOrganization.get_feature_z_positions())
 
             fixImage = np.array([self._filter(
                 self.dataSet.get_feature_fiducial_image(0, fragmentIndex))
@@ -248,59 +263,68 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             shifts3D = np.array([
                 registration.phase_cross_correlation(
                     reference_image = fixImageStack,
-                    moving_image = self._filter_set(self.get_feature_image_set(x, fragmentIndex)),
+                    moving_image = self._filter_set(
+                        self.get_feature_image_set(x, fragmentIndex)),
                     upsample_factor = 100)[0] for x in \
                     self.dataSet.get_data_organization().get_data_channels()])
 
             shifts3D = shifts3D - shifts2D
             self._save_shifts(
                 shifts3D, fragmentIndex)
-        
+
         if self.parameters['write_aligned_feature_images']:
-            imageSet = []
             dataChannels = self.dataSet.get_data_organization().get_data_channels()
             for dataChannel in dataChannels:
-                featureImages = self._filter_set(self.get_feature_image_set(dataChannel, fragmentIndex))
+                featureImages = self._filter_set(
+                        self.get_feature_image_set(dataChannel, fragmentIndex))
                 transformations_xy = transform.SimilarityTransform(
-                    translation=[-shifts2D[dataChannel,2], -shifts2D[dataChannel,1]]) 
-                warpedImages = np.array([ transform.warp(x, transformations_xy, preserve_range=True).astype(featureImages.dtype) \
+                    translation=[-(shifts2D[dataChannel,2] + shifts3D[dataChannel,2]), 
+                                 -(shifts2D[dataChannel,1] + shifts3D[dataChannel,1])]);
+
+                warpedImages = np.array([ 
+                        transform.warp(
+                            x, transformations_xy, 
+                            preserve_range=True
+                            ).astype(featureImages.dtype) \
                     for x in featureImages ]);
+                
+                # warp based on y,z estimated by 3D beads
+                imageSet = np.zeros(warpedImages.shape)
+                for i in range(warpedImages.shape[1]):
+                    transformations_xz = transform.SimilarityTransform(
+                        translation=[-shifts3D[dataChannel,2], 
+                                     -shifts3D[dataChannel,0]]);
+                    imageSet[:,i,:] = transform.warp(
+                        warpedImages[:,i,:], 
+                        transformations_xz, 
+                        preserve_range=True
+                        ).astype(warpedImages.dtype)
 
-                warpedImages_xz =  warpedImages[:,:,:].max(axis=1)
-                transformations_xz = transform.SimilarityTransform(
-                    translation=[-shifts3D[dataChannel,2], -shifts3D[dataChannel,0]]);
-
-                imageSet.append(
-                    transform.warp(warpedImages_xz, 
-                                   transformations_xz, 
-                                   preserve_range=True
-                                   ).astype(warpedImages_xz.dtype)
-                );
-
-            fiducialImageDescription = self.dataSet.analysis_tiff_description(
-                    1, len(dataChannels))
-
-            with self.dataSet.writer_for_analysis_images(
-                    self, 'aligned_feature_images', fragmentIndex) as outputTif:
-                for x in imageSet:
-                    outputTif.save(
-                            x.astype(np.uint16), 
-                            photometric='MINISBLACK',
-                            metadata=fiducialImageDescription)
+                imageSet[imageSet < 0] = 0
+                self.writer_for_analysis_images(
+                    imageSet.astype(np.uint16), 
+                    subdirectory = "interpolatedFeatureImages",
+                    imageBaseName = "images", 
+                    imageIndex = fragmentIndex,
+                    dataChannel = dataChannel,
+                    fileType = "tif")
 
         # write down interpolated images
-        dataChannels = self.dataSet.get_data_organization().get_data_channels()
-        for dataChannel in dataChannels:
-            imageSet = self.get_interpolated_image_set(
-                    fragmentIndex, dataChannel,
-                    self.parameters["z_coordinates_micron"]) 
+        if self.parameters['write_aligned_images']:
+            dataChannels = self.dataSet.get_data_organization().get_data_channels()
+            for dataChannel in dataChannels:
+                imageSet = self.get_interpolated_image_set(
+                        fragmentIndex, dataChannel,
+                        self.parameters["z_coordinates_micron"]) 
+                
+                fimage = self.dataSet.get_fiducial_image(
+                    dataChannel, fragmentIndex)
             
-            fimage = self.dataSet.get_fiducial_image(
-                dataChannel, fragmentIndex)
+                self.writer_for_analysis_images(
+                    np.array([fimage] + imageSet), 
+                    subdirectory = "interpolatedImages",
+                    imageBaseName = "images", 
+                    imageIndex = fragmentIndex,
+                    dataChannel = dataChannel,
+                    fileType = "dax")
 
-            self.writer_for_analysis_images(
-                np.array([fimage] + imageSet), 
-                subdirectory = "interpolatedImages",
-                imageBaseName = "images", 
-                imageIndex = fragmentIndex,
-                dataChannel = dataChannel)
