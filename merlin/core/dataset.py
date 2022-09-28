@@ -22,8 +22,8 @@ import tables
 import xmltodict
 import geopandas
 
-from merlin.util import imagereader
 import merlin
+from merlin.util import imagereader
 from merlin.core import analysistask
 from merlin.data import dataorganization
 from merlin.data import codebook
@@ -43,7 +43,8 @@ class DataSet(object):
                  dataDirectoryName: str,
                  analysisDirectoryName: str,
                  dataHome: str = None, 
-                 analysisHome: str = None):
+                 analysisHome: str = None,
+                 parametersHome: str= None):
                  
         """Create a dataset for the specified raw data.
 
@@ -54,20 +55,48 @@ class DataSet(object):
                     to be in dataHome/dataDirectoryName. If dataHome
                     is not specified, DATA_HOME is read from the
                     .env file.
+
             analysisHome: the base path for storing analysis results. Analysis
                     results for this DataSet will be stored in
                     analysisHome/analysisDirectoryName. If analysisHome is not
                     specified, ANALYSIS_HOME is read from the .env file.
+
+            parametersHome: the base path for storing parameters. 
+                     If parametersHome is not specified, PARAMETER_HOME 
+                     is read from the .env file.
+
         """
         if dataHome is None:
             dataHome = merlin.DATA_HOME
         if analysisHome is None:
             analysisHome = merlin.ANALYSIS_HOME
+        if parametersHome is None:
+            parametersHome = merlin.PARAMETERS_HOME
 
         self.dataSetName = dataDirectoryName
         self.analysisSetName = analysisDirectoryName
         self.dataHome = dataHome
         self.analysisHome = analysisHome
+
+        # update parameter home, this avoids saving all parameter files
+        # in one parameter directory
+        merlin.PARAMETERS_HOME = parametersHome
+
+        merlin.ANALYSIS_PARAMETERS_HOME = os.sep.join(
+                [merlin.PARAMETERS_HOME, 'analysis'])
+        merlin.CODEBOOK_HOME = os.sep.join(
+                [merlin.PARAMETERS_HOME, 'codebooks'])
+        merlin.DATA_ORGANIZATION_HOME = os.sep.join(
+                [merlin.PARAMETERS_HOME, 'dataorganization'])
+        merlin.POSITION_HOME = os.sep.join(
+                [merlin.PARAMETERS_HOME, 'positions'])
+        merlin.MICROSCOPE_PARAMETERS_HOME = os.sep.join(
+                [merlin.PARAMETERS_HOME, 'microscope'])
+        merlin.DEEPMERFISH_PARAMETERS_HOME = os.sep.join(
+                [merlin.PARAMETERS_HOME, 'deepmerfish'])
+        merlin.FPKM_HOME = os.sep.join([merlin.PARAMETERS_HOME, 'fpkm'])
+        merlin.SNAKEMAKE_PARAMETERS_HOME = os.sep.join(
+            [merlin.PARAMETERS_HOME, 'snakemake'])
 
         self.rawDataPath = os.sep.join([dataHome, dataDirectoryName])
         self.rawDataPortal = dataportal.DataPortal.create_portal(
@@ -902,6 +931,7 @@ class ImageDataSet(DataSet):
                  analysisDirectoryName: str,
                  dataHome: str = None,
                  analysisHome: str = None,
+                 parametersHome: str = None,
                  microscopeParametersName: str = None,
                  microscopeChromaticCorrectionsName: str = None,
                  microscopeIlluminationCorrectionsName: str = None,
@@ -919,6 +949,9 @@ class ImageDataSet(DataSet):
                     results for this DataSet will be stored in
                     analysisHome/analysisDirectoryName. If analysisHome is not
                     specified, ANALYSIS_HOME is read from the .env file.
+            parametersHome: the base path for storing analysis parameters. 
+                     If parametersHome is not specified, PARAMETERS_HOME is 
+                     read from the .env file.
             microscopeParametersName: the name of the microscope parameters
                     file that specifies properties of the microscope used
                     to acquire the images represented by this ImageDataSet
@@ -932,7 +965,8 @@ class ImageDataSet(DataSet):
         """
         super().__init__(dataDirectoryName, 
                          analysisDirectoryName, 
-                         dataHome, analysisHome)
+                         dataHome, analysisHome, 
+                         parametersHome)
 
         if microscopeParametersName is not None:
             self._import_microscope_parameters(microscopeParametersName)
@@ -1128,8 +1162,11 @@ class MERFISHDataSet(ImageDataSet):
     def __init__(self, dataDirectoryName: str, 
                  analysisDirectoryName: str, 
                  codebookNames: List[str] = None,
-                 dataOrganizationName: str = None, positionFileName: str = None,
-                 dataHome: str = None, analysisHome: str = None,
+                 dataOrganizationName: str = None, 
+                 positionFileName: str = None,
+                 dataHome: str = None, 
+                 analysisHome: str = None,
+                 parametersHome: str = None,
                  microscopeParametersName: str = None,
                  microscopeChromaticCorrectionsName: str = None,
                  microscopeIlluminationCorrectionsName: str = None,
@@ -1156,6 +1193,9 @@ class MERFISHDataSet(ImageDataSet):
                     results for this DataSet will be stored in
                     analysisHome/analysisDirectoryName. If analysisHome is not
                     specified, ANALYSIS_HOME is read from the .env file.
+            parametersHome: the base path for storing analysis parameters. 
+                     If parametersHome is not specified, PARAMETERS_HOME 
+                     is read from the .env file.
             microscopeParametersName: the name of the microscope parameters
                     file that specifies properties of the microscope used
                     to acquire the images represented by this ImageDataSet
@@ -1172,7 +1212,8 @@ class MERFISHDataSet(ImageDataSet):
         """
         super().__init__(dataDirectoryName, 
                          analysisDirectoryName, 
-                         dataHome, analysisHome,
+                         dataHome, analysisHome, 
+                         parametersHome,
                          microscopeParametersName, 
                          microscopeChromaticCorrectionsName,
                          microscopeIlluminationCorrectionsName,
@@ -1325,6 +1366,14 @@ class MERFISHDataSet(ImageDataSet):
             raise Exception('Requested z=%0.2f position not found.' % zPosition)
 
         return zIndex[0]
+
+    def get_feature_z_positions(self) -> List[float]:
+        """Get the z positions present in this dataset.
+
+        Returns:
+            A sorted list of all unique z positions
+        """
+        return self.dataOrganization.get_feature_z_positions()
 
     def get_z_positions(self) -> List[float]:
         """Get the z positions present in this dataset.

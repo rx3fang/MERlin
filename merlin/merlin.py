@@ -61,6 +61,8 @@ def build_parser():
                         help='the data home directory')
     parser.add_argument('-s', '--analysis-home',
                         help='the analysis home directory')
+    parser.add_argument('-j', '--parameters-home',
+                        help='the parameters directory')
     parser.add_argument('-k', '--snakemake-parameters',
                         help='the name of the snakemake parameters file')
     parser.add_argument('--no_report',
@@ -115,9 +117,10 @@ def merlin():
         microscopeChromaticCorrectionsName = _clean_string_arg(args.microscope_chromatic_corrections),
         microscopeIlluminationCorrectionsName = _clean_string_arg(args.microscope_illumination_corrections),
         deepmerfishModelName = _clean_string_arg(args.deepmerfish_model_name),
-        positionFileName=_clean_string_arg(args.positions),
-        dataHome=_clean_string_arg(args.data_home),
-        analysisHome=_clean_string_arg(args.analysis_home)
+        positionFileName = _clean_string_arg(args.positions),
+        dataHome = _clean_string_arg(args.data_home),
+        analysisHome = _clean_string_arg(args.analysis_home),
+        parametersHome= _clean_string_arg(args.parameters_home)
     )
     
     parametersHome = m.ANALYSIS_PARAMETERS_HOME

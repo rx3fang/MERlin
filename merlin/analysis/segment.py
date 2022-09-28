@@ -14,12 +14,14 @@ from merlin.util import spatialfeature
 from merlin.util import watershed
 from merlin.util import imagefilters
 
+import tifffile
 import pandas
 import networkx as nx
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from cellpose import models
 import cellpose
+import skimage
 from shapely.geometry import Point, LineString, Polygon
 
 
@@ -379,6 +381,169 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         featureDB = self.get_feature_database()
         featureDB.write_features(featureList, fragmentIndex)
 
+
+
+class CellPoseSegment3D(FeatureSavingAnalysisTask):
+
+    """
+    An analysis task that determines the boundaries of features in the
+    3D image stack in each field of view using a cellpose 2.0 algorithm.
+    
+    Since each field of view is analyzed individually, the segmentation results
+    should be cleaned in order to merge cells that cross the field of
+    view boundary.
+    """
+
+    def __init__(self, dataSet, parameters=None, analysisName=None):
+        super().__init__(dataSet, parameters, analysisName)
+
+        if 'nuclei_channel_name' not in self.parameters:
+            self.parameters['nuclei_channel_name'] = 'DAPI'
+        if 'cyto_channel_name' not in self.parameters:
+            self.parameters['cyto_channel_name'] = 'polyT'
+        if 'max_clip' not in self.parameters:
+            self.parameters['max_clip'] = 0.97
+        if 'low_pass_sigma' not in self.parameters:
+            self.parameters['low_pass_sigma'] = 1
+        if 'flow_threshold' not in self.parameters:
+            self.parameters['flow_threshold'] = 0.0
+        if 'min_size' not in self.parameters:
+            self.parameters['min_size'] = 0
+        if 'resample' not in self.parameters:
+            self.parameters['resample'] = True
+        if 'normalize' not in self.parameters:
+            self.parameters['normalize'] = False
+        if 'write_mask_images' not in self.parameters:
+            self.parameters['write_mask_images'] = False
+        if 'use_gpu' not in self.parameters:
+            self.parameters['use_gpu'] = False
+        if 'downsample' not in self.parameters:
+            self.parameters['downsample'] = 0.2
+
+    def fragment_count(self):
+        return len(self.dataSet.get_fovs())
+
+    def get_estimated_memory(self):
+        # TODO - refine estimate
+        return 2048
+
+    def get_estimated_time(self):
+        # TODO - refine estimate
+        return 5
+
+    def get_dependencies(self):
+        return [self.parameters['warp_task'],
+                self.parameters['global_align_task']]
+
+    def get_cell_boundaries(self) -> List[spatialfeature.SpatialFeature]:
+        featureDB = self.get_feature_database()
+        return featureDB.read_features()
+
+    def _read_image_stack(self, fov: int, channelIndex: int) -> np.ndarray:
+        warpTask = self.dataSet.load_analysis_task(
+            self.parameters['warp_task'])
+        return np.array([warpTask.get_aligned_image(fov, channelIndex, z)
+                         for z in range(len(self.dataSet.get_z_positions()))])
+
+    def _run_analysis(self, fragmentIndex):
+        model = models.CellposeModel(
+            pretrained_model=self.parameters['model_path'], gpu=False)
+        
+        globalTask = self.dataSet.load_analysis_task(
+                self.parameters['global_align_task'])
+
+        # read membrane and nuclear indices
+        dapi_ids = self.dataSet.get_data_organization().get_data_channel_index(
+                self.parameters['nuclei_channel_name'])
+        cyto_ids = self.dataSet.get_data_organization().get_data_channel_index(
+                self.parameters['cyto_channel_name'])
+
+        # read images and perform segmentation
+        dapi_images = self._read_image_stack(fragmentIndex, dapi_ids)
+        cyto_images = self._read_image_stack(fragmentIndex, cyto_ids)
+		        
+        # apply low pass filter 
+        # dapi_images = np.array([ imagefilters.low_pass_filter(
+        #         x, self.parameters['low_pass_sigma']) \
+        #     for x in dapi_images ])
+        # cyto_images = np.array([ imagefilters.low_pass_filter(
+        #         x, self.parameters['low_pass_sigma']) \
+        #     for x in cyto_images ])
+
+        dapi_images[dapi_images > np.quantile(dapi_images, 
+                                              self.parameters['max_clip'])] = \
+                np.quantile(dapi_images, self.parameters['max_clip'])
+        
+        cyto_images[cyto_images > np.quantile(cyto_images, 
+                                              self.parameters['max_clip'])] = \
+                np.quantile(cyto_images, self.parameters['max_clip'])
+        
+        # combine images to two channels
+        stacked_images = np.stack((dapi_images,cyto_images), axis=1)
+        
+        # downsample images
+        stacked_images_downsampled = skimage.transform.rescale(
+            stacked_images, [1, 1, self.parameters['downsample'], self.parameters['downsample']], 
+            preserve_range=True)
+        
+        print(stacked_images_downsampled.shape)
+        tifffile.imwrite(data=stacked_images_downsampled.astype(np.uint16), 
+            file="stacked_images_downsampled.tif")
+        
+        # Load the cellpose model. 'cyto2' performs better than 'cyto'.
+        print("start segmentation!");
+        masks, flows, styles = model.eval(
+            stacked_images_downsampled, 
+            diameter=None, channels=[2,1], do_3D=True, 
+            anisotropy=None,
+            resample = self.parameters['resample'], 
+            normalize = self.parameters['normalize'])
+        
+        print("segmentation is done!");
+        #print([1, 1 / self.parameters['downsample'], 1 / self.parameters['downsample']])
+        #print(masks.shape)
+        # upsample mask image to the original image size
+        #masks = skimage.transform.rescale(
+        #    masks, [1, 1 / self.parameters['downsample'], 1 / self.parameters['downsample']], 
+        #    preserve_range=True)
+
+        if self.parameters['write_mask_images']:
+            #dapi_images = (dapi_images / dapi_images.max() * 255).astype(np.uint8)
+            #cyto_images = (cyto_images / cyto_images.max() * 255).astype(np.uint8)
+            tifffile.imwrite(data=masks.astype(np.uint16), file="mask.tif")
+            maskImages = masks
+            print(maskImages.shape)
+            #maskImages = np.array(flatten_list([[x,y,z] \
+            #    for x,y,z in zip(masks, dapi_images, cyto_images)])
+            #    ).astype(np.uint8)
+
+            #maskImageDescription = self.dataSet.analysis_tiff_description(
+            #        1, len(maskImages))
+            #
+            #with self.dataSet.writer_for_analysis_images(
+            #        self, 'mask', fragmentIndex) as outputTif:
+            #
+            #    for maskImage in maskImages:
+            #        outputTif.save(
+            #                maskImage, 
+            #                photometric='MINISBLACK',
+            #                metadata=maskImageDescription)
+
+        
+        # identify features for each zplane sperately
+        zposList = self.dataSet.get_data_organization().get_z_positions()
+        
+        # obtain the z index for each feature
+        featureList = [ spatialfeature.SpatialFeature.feature_from_label_matrix(
+            masks == label, fragmentIndex, 
+            globalTask.fov_to_global_transform(fragmentIndex),
+            list(np.unique(np.where(masks == label)[0]))) \
+            for label in np.unique(masks) if label != 0 ]
+        
+        featureDB = self.get_feature_database()
+        featureDB.write_features(featureList, fragmentIndex)
+
+
 class CleanCellBoundaries(analysistask.ParallelAnalysisTask):
     
     '''
@@ -484,9 +649,9 @@ class CombineCleanedBoundaries(analysistask.AnalysisTask):
 
         cleanedCells = spatialfeature.remove_overlapping_cells(graph)
 
-        self.dataSet.save_dataframe_to_csv(cleanedCells, 'all_cleaned_cells',
-                                           analysisTask=self)
-
+        self.dataSet.save_dataframe_to_csv(
+            cleanedCells, 'all_cleaned_cells',
+            analysisTask=self)
 
 class RefineCellDatabases(FeatureSavingAnalysisTask):
     def __init__(self, dataSet, parameters=None, analysisName=None):

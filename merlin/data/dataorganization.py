@@ -237,6 +237,14 @@ class DataOrganization(object):
         """
         return sorted(np.unique([y for x in self.data['zPos'] for y in x]))
 
+    def get_feature_z_positions(self) -> List[float]:
+        """Get the z positions present in this data organization.
+
+        Returns:
+            A sorted list of all unique z positions for feature images
+        """
+        return sorted(np.unique([y for x in self.data['featurezPos'] for y in x]))
+
     def get_feature_filename(self, dataChannel: int, fov: int) -> str:
         """Get the path for the image file that contains the fiducial
         image for the specified dataChannel and fov.
