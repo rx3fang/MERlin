@@ -39,6 +39,9 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
         if "median_filter_size" not in self.parameters:
             self.parameters['median_filter_size'] = 2
 
+        if "file_type" not in self.parameters:
+            self.parameters['file_type'] = "tif"
+
             
     def fragment_count(self):
         return len(self.dataSet.get_fovs())
@@ -392,7 +395,7 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
                     imageBaseName = "images", 
                     imageIndex = fragmentIndex,
                     dataChannel = dataChannel,
-                    fileType = "dax")
+                    fileType = self.parameters['file_type'])
     
         # write down interpolated images
         if self.parameters['write_aligned_images']:
@@ -420,6 +423,6 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
                     imageBaseName = "images", 
                     imageIndex = fragmentIndex,
                     dataChannel = dataChannel,
-                    fileType = "dax")
+                    fileType = self.parameters['file_type'])
         
 
