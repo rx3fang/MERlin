@@ -14,6 +14,77 @@ from merlin.core import analysistask
 from merlin.util import aberration
 from merlin.util import imagewriter
 
+class EstimateTissueThickness(analysistask.ParallelAnalysisTask):
+
+    """
+    An abstract class for estimating the tissue thickness based
+    on the beads imaging.
+    """
+
+    def __init__(self, dataSet, parameters=None, analysisName=None):
+        super().__init__(dataSet, parameters, analysisName)
+
+        if "highpass_sigma" not in self.parameters:
+            self.parameters['highpass_sigma'] = -1
+
+        if "median_filter_size" not in self.parameters:
+            self.parameters['median_filter_size'] = 2
+
+    def _filter(self, inputImage: np.ndarray) -> np.ndarray:
+        return self._high_pass_filter(self._median_filter(inputImage))
+
+    def _filter_set(self, inputImages: np.ndarray) -> np.ndarray:
+        return np.array([ self._high_pass_filter(self._median_filter(x)) \
+            for x in inputImages ])
+    
+    def _median_filter(self, inputImage: np.ndarray) -> np.ndarray:
+        median_filter_size = self.parameters['median_filter_size']
+        return ndimage.median_filter(inputImage, 
+            size=median_filter_size, mode="mirror")
+    
+    def _high_pass_filter(self, inputImage: np.ndarray) -> np.ndarray:
+        highPassSigma = self.parameters['highpass_sigma']
+        if highPassSigma == -1:
+            return inputImage
+        highPassFilterSize = int(2 * np.ceil(2 * highPassSigma) + 1)
+        return inputImage.astype(float) - cv2.GaussianBlur(
+                inputImage, (highPassFilterSize, highPassFilterSize),
+                highPassSigma, borderType=cv2.BORDER_REPLICATE) 
+        
+    def _save_thickness(self, transformationList, fov: int) -> None:
+        self.dataSet.save_numpy_analysis_result(
+            np.array(transformationList), 'offsets',
+            self.get_analysis_name(), resultIndex=fov,
+            subdirectory='thickness')
+    
+    def get_feature_image_set(self, dataChannel, fov: int):
+        return np.array([ self.dataSet.get_feature_image(dataChannel, fov, zpos) \
+            for zpos in self.dataSet.get_data_organization().get_feature_z_positions() ])
+    
+    def fragment_count(self):
+        return len(self.dataSet.get_fovs())
+
+    def get_estimated_memory(self):
+        return 2048
+
+    def get_estimated_time(self):
+        return 5
+
+    def get_dependencies(self):
+        return []
+
+
+    def _run_analysis(self, fragmentIndex: int):
+        intensity_z_list = []
+        for dataChannel in self.dataSet.get_data_organization().get_data_channels():
+            images = self.get_feature_image_set(
+                    dataChannel, fragmentIndex)
+            imagesFiltered = self._filter_set(images)
+            intensity_z_list.append(
+                imagesFiltered.sum(axis=1).sum(axis=1).argmax())
+
+        self._save_thickness(intensity_z_list, fragmentIndex)
+    
 class Interpolate3D(analysistask.ParallelAnalysisTask):
 
     """
@@ -46,7 +117,7 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             self.parameters['median_filter_size'] = 2
 
         if "file_type" not in self.parameters:
-            self.parameters['file_type'] = "tif"
+            self.parameters['file_type'] = "dax"
 
         if "interpolate_thickness_micron" not in self.parameters:
             self.parameters['interpolate_thickness_micron'] = 3
@@ -403,10 +474,10 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             for dataChannel in dataChannels:
                 imageSet = self.get_interpolated_image_set(
                         fragmentIndex, dataChannel) 
-                
+
                 fimage = self.dataSet.get_fiducial_image(
                     dataChannel, fragmentIndex)
-                
+                                
                 offset = self.get_transform(fragmentIndex, dataChannel)
                 transformations_xy = transform.SimilarityTransform(
                     translation=[-offset[2], -offset[1]]) 
@@ -415,7 +486,7 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
                                         transformations_xy, 
                                         preserve_range=True
                                         ).astype(fimage.dtype) 
-
+                
                 self.writer_for_analysis_data(
                     np.array([fimage] + imageSet), 
                     subdirectory = "interpolatedImages",

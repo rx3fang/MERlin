@@ -491,7 +491,6 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
             file="stacked_images_downsampled.tif")
         
         # Load the cellpose model. 'cyto2' performs better than 'cyto'.
-        print("start segmentation!");
         masks, flows, styles = model.eval(
             stacked_images_downsampled, 
             diameter=None, channels=[2,1], do_3D=True, 
@@ -499,7 +498,6 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
             resample = self.parameters['resample'], 
             normalize = self.parameters['normalize'])
         
-        print("segmentation is done!");
         #print([1, 1 / self.parameters['downsample'], 1 / self.parameters['downsample']])
         #print(masks.shape)
         # upsample mask image to the original image size

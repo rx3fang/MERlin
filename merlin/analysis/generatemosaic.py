@@ -26,7 +26,7 @@ class GenerateMosaic(analysistask.AnalysisTask):
             self.parameters['separate_files'] = False
         if 'draw_fov_labels' not in self.parameters:
             self.parameters['draw_fov_labels'] = False
-
+            
         if self.parameters['microns_per_pixel'] == 'full_resolution':
             self.mosaicMicronsPerPixel = self.dataSet.get_microns_per_pixel()
         else:
