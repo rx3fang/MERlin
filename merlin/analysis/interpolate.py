@@ -364,7 +364,6 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             np.save(fname, data)
 
     def _run_analysis(self, fragmentIndex: int):
-
         try:
             shifts3D = self.get_shift_pixel(fragmentIndex);
             shifts2D = self.get_transformation(fragmentIndex);

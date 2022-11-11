@@ -18,7 +18,6 @@ class AbstractFilterBarcodes(decode.BarcodeSavingParallelAnalysisTask):
             self.parameters['decode_task'])
         return decodeTask.get_codebook()
 
-
 class FilterBarcodes(AbstractFilterBarcodes):
 
     """
@@ -109,7 +108,6 @@ class EstimateLikelihoodThreshold(analysistask.AnalysisTask):
 
     def get_dependencies(self):
         return [self.parameters['run_after_task']]
-    
     
     def _run_analysis(self):
         decodeTask = self.dataSet.load_analysis_task(

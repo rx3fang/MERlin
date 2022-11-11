@@ -264,3 +264,6 @@ class PyTablesBarcodeDB(BarcodeDB):
             tablesType = self._get_bc_column_types()
             pandasHDF.append('barcodes', barcodeInformation.astype(tablesType),
                              format='table')
+
+
+
