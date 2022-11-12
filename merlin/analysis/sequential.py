@@ -4,10 +4,15 @@ import networkx
 import numpy as np
 import cv2
 from skimage.measure import regionprops
+from functools import reduce
 
 from merlin.core import analysistask
 from merlin.util import imagefilters
 
+"""
+A module for sequential round analysis
+Latest Update: Rongxin Fang 11/12/2022
+"""
 
 class SumSignal(analysistask.ParallelAnalysisTask):
 
@@ -20,20 +25,14 @@ class SumSignal(analysistask.ParallelAnalysisTask):
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
 
-        if 'apply_highpass' not in self.parameters:
-            self.parameters['apply_highpass'] = False
-        if 'highpass_sigma' not in self.parameters:
-            self.parameters['highpass_sigma'] = 5
-        if 'z_index' not in self.parameters:
-            self.parameters['z_index'] = 0
+        self.highpass = False
+        if 'highpass_sigma' in self.parameters:
+            self.highpass = True
+        
+        if 'z_indexes' not in self.parameters:
+            zPositionCount = len(self.dataSet.get_z_positions())
+            self.parameters['z_indexes'] = range(zPositionCount)
 
-        if self.parameters['z_index'] >= len(self.dataSet.get_z_positions()):
-            raise analysistask.InvalidParameterException(
-                'Invalid z_index specified for %s. (%i > %i)'
-                % (self.analysisName, self.parameters['z_index'],
-                   len(self.dataSet.get_z_positions())))
-
-        self.highpass = str(self.parameters['apply_highpass']).upper() == 'TRUE'
         self.alignTask = self.dataSet.load_analysis_task(
             self.parameters['global_align_task'])
 
@@ -83,14 +82,14 @@ class SumSignal(analysistask.ParallelAnalysisTask):
 
     def _get_sum_signal(self, fov, channels, zIndex):
 
-        fTask = self.dataSet.load_analysis_task(self.parameters['warp_task'])
-        sTask = self.dataSet.load_analysis_task(self.parameters['segment_task'])
+        warpTask = self.dataSet.load_analysis_task(self.parameters['warp_task'])
+        segmentTask = self.dataSet.load_analysis_task(self.parameters['segment_task'])
 
-        cells = sTask.get_feature_database().read_features(fov)
+        cells = segmentTask.get_feature_database().read_features(fov)
 
         signals = []
         for ch in channels:
-            img = fTask.get_aligned_image(fov, ch, zIndex)
+            img = warpTask.get_aligned_image(fov, ch, zIndex)
             if self.highpass:
                 highPassSigma = self.parameters['highpass_sigma']
                 highPassFilterSize = int(2 * np.ceil(3 * highPassSigma) + 1)
@@ -105,7 +104,7 @@ class SumSignal(analysistask.ParallelAnalysisTask):
 
         compiledSignal = pandas.concat(signals, 1)
         compiledSignal.columns = channels+['Pixels']
-
+        
         return compiledSignal
 
     def get_sum_signals(self, fov: int = None) -> pandas.DataFrame:
@@ -128,18 +127,36 @@ class SumSignal(analysistask.ParallelAnalysisTask):
             fov, 'signals', index_col=0)
 
     def _run_analysis(self, fragmentIndex):
-        zIndex = int(self.parameters['z_index'])
-        channels, geneNames = self.dataSet.get_data_organization()\
-            .get_sequential_rounds()
+        # load input parameters
+        zIndexes = self.parameters['z_indexes']
+        channelNames = self.parameters['channel_names']
 
-        fovSignal = self._get_sum_signal(fragmentIndex, channels, zIndex)
-        normSignal = fovSignal.iloc[:, :-1].div(fovSignal.loc[:, 'Pixels'], 0)
-        normSignal.columns = geneNames
-
+        # get channel ids
+        channels = [ self.dataSet.get_data_organization().\
+            get_data_channel_with_name(cn) \
+            for cn in channelNames ]
+        
+        # get sum signal for each z plane
+        sumSignalList = [ self._get_sum_signal(
+                fragmentIndex, channels, zIndex) \
+            for zIndex in zIndexes ]
+        
+        # sum signals over all z planes
+        sumSignal = reduce(lambda x, y: x.add(y, fill_value=0), 
+            sumSignalList)
+        
+        # normalize signal by pixel number
+        normSignal = sumSignal.iloc[:, :-1].\
+            div(sumSignal.loc[:, 'Pixels'], 0)
+        
+        # rename the column name
+        normSignal.columns = channelNames
+        
+        # save as csv file
         self.dataSet.save_dataframe_to_csv(
-                normSignal, 'sequential_signal', self.get_analysis_name(),
+                normSignal, 'sequential_signal', 
+                self.get_analysis_name(),
                 fragmentIndex, 'signals')
-
 
 class ExportSumSignals(analysistask.AnalysisTask):
     def __init__(self, dataSet, parameters=None, analysisName=None):

@@ -115,10 +115,10 @@ class Thunderstorm(ThunderstormSavingParallelAnalysisTask):
     def _run_analysis(self, fragmentIndex):
         
         codebook = self.get_codebook()
+        bitCount = codebook.get_bit_count()
         zPositionCount = len(self.dataSet.get_z_positions())
         
         imageShape = self.dataSet.get_image_dimensions()
-        bitCount = codebook.get_bit_count()
         imageSet = np.zeros((zPositionCount, bitCount, *imageShape), dtype=np.int16)
         
         pixelSize = self.dataSet.get_microns_per_pixel() * 1000
