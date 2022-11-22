@@ -156,10 +156,12 @@ class Decode(BarcodeSavingParallelAnalysisTask):
         zPositionCount = len(self.dataSet.get_z_positions())
         bitCount = codebook.get_bit_count()
         imageShape = self.dataSet.get_image_dimensions()
-        decodedImages = np.zeros((zPositionCount, *imageShape), dtype=np.int16)
+        decodedImages = np.zeros((zPositionCount, *imageShape), 
+                                dtype=np.int16)
         magnitudeImages = np.zeros((zPositionCount, *imageShape),
-                                   dtype=np.float32)
-        distances = np.zeros((zPositionCount, *imageShape), dtype=np.float32)
+                                  dtype=np.float32)
+        distances = np.zeros((zPositionCount, *imageShape), 
+                            dtype=np.float32)
 
         if self.parameters['write_processed_images']:
             processedImages = np.array([ preprocessTask.get_processed_image_set(
