@@ -27,19 +27,6 @@ from skimage import transform
 from shapely.geometry import Point, LineString, Polygon
 from PIL import Image as im        
 
-
-def flatten_list(_2d_list):
-    flat_list = []
-    # Iterate through the outer list
-    for element in _2d_list:
-        if type(element) is list:
-            # If the element is of type list, iterate through the sublist
-            for item in element:
-                flat_list.append(item)
-        else:
-            flat_list.append(element)
-    return flat_list
-    
 class FeatureSavingAnalysisTask(analysistask.ParallelAnalysisTask):
 
     """
@@ -149,32 +136,35 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
 
     """
     An analysis task that determines the boundaries of features in the
-    image data in each field of view using a cellpose algorithm.
+    image data in 2D in each field of view using a cellpose algorithm. 
+    Because z plane was analyzed individually, the segmented boundries
+    converted into global micron position and are connected in 3D if 
+    the distance between their centroid positons are less than 
+    connect_distance (in micron).
     
-    Since each field of view is analyzed individually, the segmentation results
-    should be cleaned in order to merge cells that cross the field of
-    view boundary.
+    Since each field of view is analyzed individually, the segmentation 
+    results should be cleaned in order to merge cells that cross the field 
+    of view boundary.
     """
 
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
 
-        if 'nuclei_channel_name' not in self.parameters:
-            self.parameters['nuclei_channel_name'] = 'DAPI'
-        if 'cyto_channel_name' not in self.parameters:
-            self.parameters['cyto_channel_name'] = 'polyT'
-        if 'model_type' not in self.parameters:
-            self.parameters['model_type'] = "cyto2"
+        self.run_custom_model = False
+        if 'model_path' in self.parameters:
+            self.run_custom_model = True
+        if 'channel_names' not in self.parameters:
+            self.parameters['channel_names'] = ['DAPI', "polyT"]
+        if 'channels' not in self.parameters:
+            self.parameters['channels'] = [2, 1]
+        if 'resample' not in self.parameters:
+            self.parameters['resample'] = True
         if 'diameter' not in self.parameters:
-            self.parameters['diameter'] = 100
-        if 'channel1' not in self.parameters:
-            self.parameters['channel1'] = 2
-        if 'channel2' not in self.parameters:
-            self.parameters['channel2'] = 3
-        if 'max_clip' not in self.parameters:
-            self.parameters['max_clip'] = 0.97
-        if 'low_pass_sigma' not in self.parameters:
-            self.parameters['low_pass_sigma'] = 1
+            self.parameters['diameter'] = None        
+        if 'write_mask_images' not in self.parameters:
+            self.parameters['write_mask_images'] = False
+        if 'use_gpu' not in self.parameters:
+            self.parameters['use_gpu'] = False
         if 'flow_threshold' not in self.parameters:
             self.parameters['flow_threshold'] = 0.0
         if 'min_size' not in self.parameters:
@@ -182,17 +172,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         if 'connect_distance' not in self.parameters:
             self.parameters['connect_distance'] = 5
         if 'n_neighbors' not in self.parameters:
-            self.parameters['n_neighbors'] = 6
-        if 'resample' not in self.parameters:
-            self.parameters['resample'] = True
-        if 'normalize' not in self.parameters:
-            self.parameters['normalize'] = False
-        if 'write_mask_images' not in self.parameters:
-            self.parameters['write_mask_images'] = False
-        if 'use_gpu' not in self.parameters:
-            self.parameters['use_gpu'] = False
-        if 'maximum_projection' not in self.parameters:
-            self.parameters['maximum_projection'] = False
+            self.parameters['n_neighbors'] = 10        
 
     def fragment_count(self):
         return len(self.dataSet.get_fovs())
@@ -220,10 +200,10 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
                          for z in range(len(self.dataSet.get_z_positions()))])
 
     def _connect_2D_masks_to_3D_masks(self, 
-                                     masks2D,
-                                     fragmentIndex,
-                                     n_neighbors,
-                                     distance_cutoff: float = 3.0):
+                                      masks2D,
+                                      fragmentIndex,
+                                      n_neighbors,
+                                      distance_cutoff: float = 5.0):
         
         from sklearn.neighbors import NearestNeighbors
         import numpy as np
@@ -231,10 +211,12 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         globalTask = self.dataSet.load_analysis_task(
             self.parameters['global_align_task'])
         zPos = self.dataSet.get_data_organization().get_z_positions()
+        
         features = []
         for i in range(masks2D.shape[0]):
             masks3D = np.zeros(masks2D.shape)
             masks3D[i,:,:] = masks2D[i,:,:]
+            
             # obtain the z index for each feature
             features_z = [ (i, label, spatialfeature.SpatialFeature.feature_from_label_matrix(
                     masks3D == label, fragmentIndex, 
@@ -289,88 +271,81 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         return masks3D.astype(np.uint16)
         
     def _run_analysis(self, fragmentIndex):
+        
+        # load cellpose model
+        if self.run_custom_model:
+            model = models.CellposeModel(
+                pretrained_model=self.parameters['model_path'], 
+                gpu=self.parameters['use_gpu'])
+        else:
+            model = models.CellposeModel(
+                model_type=self.parameters['model_type'],
+                gpu=self.parameters['use_gpu'])
+        
+        # load global task
         globalTask = self.dataSet.load_analysis_task(
                 self.parameters['global_align_task'])
 
-        # read membrane and nuclear indices
-        dapi_ids = self.dataSet.get_data_organization().get_data_channel_index(
-                self.parameters['nuclei_channel_name'])
-        cyto_ids = self.dataSet.get_data_organization().get_data_channel_index(
-                self.parameters['cyto_channel_name'])
+        # load warp task
+        warpTask = self.dataSet.load_analysis_task(
+                self.parameters['warp_task'])
+        
+        # count z number and channel number
+        zPositionCount = len(self.dataSet.get_z_positions())
+        channelCount = len(self.parameters['channel_names'])
+        
+        # load stack images for segmentation
+        stacked_images = np.zeros([
+                zPositionCount, 
+                channelCount,
+                self.dataSet.get_image_dimensions()[0],
+                self.dataSet.get_image_dimensions()[1] ])
+        for i in range(channelCount):
+            channel_name = self.parameters['channel_names'][i]
+            channel_id = self.dataSet.get_data_organization().\
+                get_data_channel_index(channel_name)
+            images = np.array([ warpTask.get_aligned_image(
+                    fragmentIndex, channel_id, zIndex,
+                    chromaticCorrector = None) \
+                        for zIndex in range(zPositionCount) ])
+            stacked_images[:,i,:,:] = images
 
-        # read images and perform segmentation
-        dapi_images = self._read_image_stack(fragmentIndex, dapi_ids)
-        cyto_images = self._read_image_stack(fragmentIndex, cyto_ids)
-		
-		# if max projection is true, cell pose will only run on the max projected images
-		# this could be improved if cellposes can run on a single image
-        if self.parameters['maximum_projection']:
-            dapi_images = np.array([ np.amax(dapi_images, axis=0) for i in range(dapi_images.shape[0]) ]) 
-            cyto_images = np.array([ np.amax(cyto_images, axis=0) for i in range(cyto_images.shape[0]) ])
-        
-        # apply low pass filter 
-        dapi_images = np.array([ imagefilters.low_pass_filter(
-                x, self.parameters['low_pass_sigma']) \
-            for x in dapi_images ])
-        cyto_images = np.array([ imagefilters.low_pass_filter(
-                x, self.parameters['low_pass_sigma']) \
-            for x in cyto_images ])
-
-        dapi_images[dapi_images > np.quantile(dapi_images, 
-                                              self.parameters['max_clip'])] = \
-                np.quantile(dapi_images, self.parameters['max_clip'])
-        
-        cyto_images[cyto_images > np.quantile(cyto_images, 
-                                              self.parameters['max_clip'])] = \
-                np.quantile(cyto_images, self.parameters['max_clip'])
-        
-        # Combine the images into a stack
-        zero_images = np.zeros(dapi_images.shape)
-        stacked_images = np.stack((dapi_images, cyto_images, dapi_images), axis=3)
-        
-        # Load the cellpose model. 'cyto2' performs better than 'cyto'.
-        model = cellpose.models.Cellpose(gpu=self.parameters['use_gpu'], 
-                                         model_type= self.parameters['model_type'])
-        
         # Run the cellpose prediction
-        masks, flows, styles, diams = model.eval(
-            stacked_images, 
-            diameter = self.parameters['diameter'], 
-            do_3D = False, 
+        masks, flows, styles = model.eval(
+            stacked_images,
+            diameter = self.parameters['diameter'],
             flow_threshold = self.parameters['flow_threshold'],
-            channels = [self.parameters['channel1'],self.parameters['channel2']], 
+            channels = self.parameters['channels'], 
             resample = self.parameters['resample'], 
-            normalize = self.parameters['normalize'])
+            do_3D = False, # always set to be false
+            normalize = True) # always set to be true
 
-        # if there is only one z plane
-        if len(masks.shape) == 2:
-            masks = masks.reshape(1, masks.shape[0], masks.shape[1])
-          
-        masks = self._connect_2D_masks_to_3D_masks(masks,
-                                                   fragmentIndex,
-                                                   n_neighbors = self.parameters['n_neighbors'],
-                                                   distance_cutoff = self.parameters['connect_distance'])
-                                                   
+        masks = self._connect_2D_masks_to_3D_masks(
+            masks, fragmentIndex,
+            n_neighbors = self.parameters['n_neighbors'],
+            distance_cutoff = self.parameters['connect_distance'])
+
         if self.parameters['write_mask_images']:
-            dapi_images = (dapi_images / dapi_images.max() * 255).astype(np.uint8)
-            cyto_images = (cyto_images / cyto_images.max() * 255).astype(np.uint8)
-
-            maskImages = np.array(flatten_list([[x,y,z] \
-                for x,y,z in zip(masks, dapi_images, cyto_images)])
-                ).astype(np.uint8)
-
+            # stacked_images[:,-1,:,:] = masks
             maskImageDescription = self.dataSet.analysis_tiff_description(
-                    1, len(maskImages))
-
+                    1, len(stacked_images))
+        
             with self.dataSet.writer_for_analysis_images(
                     self, 'mask', fragmentIndex) as outputTif:
-
-                for maskImage in maskImages:
+                for maskImage in masks:
                     outputTif.save(
-                            maskImage, 
+                            maskImage.astype(np.uint16), 
                             photometric='MINISBLACK',
                             metadata=maskImageDescription)
 
+            with self.dataSet.writer_for_analysis_images(
+                    self, 'feature', fragmentIndex) as outputTif:
+                for maskImage in stacked_images:
+                    outputTif.save(
+                            maskImage.astype(np.uint16), 
+                            photometric='MINISBLACK',
+                            metadata=maskImageDescription)
+        
         # obtain the z index for each feature
         featureList = [ spatialfeature.SpatialFeature.feature_from_label_matrix(
             masks == label, fragmentIndex, 
@@ -380,7 +355,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
 
         featureDB = self.get_feature_database()
         featureDB.write_features(featureList, fragmentIndex)
-
+        
 class CellPoseSegment3D(FeatureSavingAnalysisTask):
 
     """
@@ -402,7 +377,7 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
         if 'channels' not in self.parameters:
             self.parameters['channels'] = [2, 1]
         if 'resample' not in self.parameters:
-            self.parameters['resample'] = False
+            self.parameters['resample'] = True
         if 'write_mask_images' not in self.parameters:
             self.parameters['write_mask_images'] = False
         if 'use_gpu' not in self.parameters:
