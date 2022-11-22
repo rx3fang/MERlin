@@ -291,13 +291,17 @@ class Decode(BarcodeSavingParallelAnalysisTask):
             self.parameters['global_align_task'])
 
         minimumArea = self.parameters['minimum_area']
-
-        self.get_barcode_database().write_barcodes(
-            pandas.concat([decoder.extract_barcodes_with_index(
+        
+        barcodes = pandas.concat([decoder.extract_barcodes_with_index(
                 i, decodedImage, pixelMagnitudes, pixelTraces, distances, fov,
                 self.cropWidth, zIndex, globalTask, minimumArea)
-                for i in range(self.get_codebook().get_barcode_count())]),
-            fov=fov)
+                for i in range(self.get_codebook().get_barcode_count())])
+        
+        z_pos_list = np.array(self.dataSet.get_z_positions())
+        barcodes = barcodes.assign(global_z =
+            [ z_pos_list[x] for x in barcodes.z.astype(int) ])
+        
+        self.get_barcode_database().write_barcodes(barcodes, fov=fov)
 
     def _remove_z_duplicate_barcodes(self, bc):
         bc = barcodefilters.remove_zplane_duplicates_all_barcodeids(
@@ -564,13 +568,17 @@ class DecodeML(BarcodeSavingParallelAnalysisTask):
 
         minimumArea = self.parameters['minimum_area']
         minimumProb = self.parameters['minimum_prob']
+        
+        barcodes = pandas.concat([decoder.extract_barcodes_with_index_ml(
+                i, decodedImage, pixelMagnitudes, pixelTraces, distances, fov,
+                self.cropWidth, zIndex, globalTask, minimumArea)
+                for i in range(self.get_codebook().get_barcode_count())])
 
-        self.get_barcode_database().write_barcodes(
-            pandas.concat([decoder.extract_barcodes_with_index_ml(
-                i, decodedImage, pixelMagnitudes, pixelTraces, distances, pixelProbs, 
-                fov, self.cropWidth, zIndex, globalTask, minimumArea, minimumProb)
-                for i in range(self.get_codebook().get_barcode_count())]),
-            fov=fov)
+        z_pos_list = np.array(self.dataSet.get_z_positions())
+        barcodes = barcodes.assign(global_z =
+            [ z_pos_list[x] for x in barcodes.z.astype(int) ])
+
+        self.get_barcode_database().write_barcodes(barcodes, fov=fov)
 
     def _remove_z_duplicate_barcodes(self, bc):
         bc = barcodefilters.remove_zplane_duplicates_all_barcodeids(
