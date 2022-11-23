@@ -202,8 +202,8 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
     def _connect_2D_masks_to_3D_masks(self, 
                                       masks2D,
                                       fragmentIndex,
-                                      n_neighbors,
-                                      distance_cutoff: float = 5.0):
+                                      n_neighbors: int = 5,
+                                      distance_cutoff: float = 3.0):
         
         from sklearn.neighbors import NearestNeighbors
         import numpy as np
@@ -234,7 +234,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         if len(featuresList) <= 1:
             return masks2D.astype(np.uint16)
 
-        # get the centroid positions
+        # get the centroid positions in global_x, global_y, global_z
         centroids = np.array([[
             (x.get_bounding_box()[0] + x.get_bounding_box()[2]) / 2,
             (x.get_bounding_box()[1] + x.get_bounding_box()[3]) / 2,
@@ -395,11 +395,9 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
         return len(self.dataSet.get_fovs())
 
     def get_estimated_memory(self):
-        # TODO - refine estimate
         return 2048
 
     def get_estimated_time(self):
-        # TODO - refine estimate
         return 5
 
     def get_dependencies(self):
@@ -417,7 +415,6 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
                          for z in range(len(self.dataSet.get_z_positions()))])
 
     def _run_analysis(self, fragmentIndex):
-        
         # load cellpose model
         if self.parameters['custom_model']:
             model = models.CellposeModel(
@@ -441,7 +438,7 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
         # load segmentation images
         stacked_images = np.zeros([
                 zPositionCount, 
-                channelCount + 1,
+                channelCount,
                 self.dataSet.get_image_dimensions()[0],
                 self.dataSet.get_image_dimensions()[1] ])
 
@@ -452,9 +449,7 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
                     fragmentIndex, channel_id, zIndex,
                     chromaticCorrector = None) \
                         for zIndex in range(zPositionCount) ])
-            stacked_images[:,i,:,:] = np.array([ 
-                x / x.max() * 10000 for x in images])
-            
+        
         # rescale the image
         scaleFactor = self.dataSet.get_microns_per_pixel() / \
             self.parameters['microns_per_pixel'] 
@@ -472,23 +467,29 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
             flow_threshold = self.parameters['flow_threshold'],
             channels = self.parameters['channels'], 
             resample = self.parameters['resample'], 
-            do_3D = True,
+            do_3D = True, # required
             normalize = True) # this a key parameter!
-
-        if self.parameters['write_mask_images']:
-            stacked_images_downsampled[:,-1,:,:] = masks
-            maskImageDescription = self.dataSet.analysis_tiff_description(
-                    1, len(stacked_images_downsampled))
         
+        if self.parameters['write_mask_images']:
+            maskImageDescription = self.dataSet.analysis_tiff_description(
+                1, len(stacked_images))
+
             with self.dataSet.writer_for_analysis_images(
                     self, 'mask', fragmentIndex) as outputTif:
-        
-                for maskImage in stacked_images_downsampled:
+                for maskImage in masks:
                     outputTif.save(
-                            maskImage.astype(np.uint16), 
-                            photometric='MINISBLACK',
-                            metadata=maskImageDescription)
+                        maskImage.astype(np.uint16),
+                        photometric='MINISBLACK',
+                        metadata=maskImageDescription)
         
+        with self.dataSet.writer_for_analysis_images(
+                self, 'feature', fragmentIndex) as outputTif:
+            for maskImage in stacked_images:
+                outputTif.save(
+                    maskImage.astype(np.uint16),
+                    photometric='MINISBLACK',
+                    metadata=maskImageDescription)
+
         # upsample mask image to the original image size
         masks = np.array([ np.array(im.fromarray(x)\
         	.resize((self.dataSet.get_image_dimensions()[0], 

@@ -95,7 +95,7 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
         # merlin decoding results
         currentFOVBarcodes.cell_index = \
             currentFOVBarcodes.cell_index.astype(str)    
-
+        
         for cell in currentCells:
             # change contains_positions to contains_positions_global_z
             # which allows barcode partition based on the global z
@@ -108,7 +108,7 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
             
             if True in contained:
                 currentFOVBarcodes.loc[contained, "cell_index"] = \
-                    cell.get_feature_id().astype(str)
+                    cell.get_feature_id()
             count = currentFOVBarcodes[contained].groupby('barcode_id').size()
             count = count.reindex(range(barcodeCount), fill_value=0)
             countsDF.loc[cell.get_feature_id(), :] = count.values.tolist()
@@ -120,11 +120,12 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
         self.dataSet.save_dataframe_to_csv(
                 countsDF, 'counts_per_cell', self.get_analysis_name(),
                 fragmentIndex)
+        
 
         bcDatabase = self.get_barcode_database()
         bcDatabase.write_barcodes(currentFOVBarcodes, 
                                   fov=fragmentIndex)
-
+        
 class ExportPartitionedBarcodes(analysistask.AnalysisTask):
 
     """
