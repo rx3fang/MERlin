@@ -221,10 +221,10 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             features_z = [ (i, label, spatialfeature.SpatialFeature.feature_from_label_matrix(
                     masks3D == label, fragmentIndex, 
                     globalTask.fov_to_global_transform(fragmentIndex),
-                    list(np.unique(np.where(masks3D == label)[0])))) \
+                    list(np.unique(np.where(masks3D == label)[0])) )) \
                     for label in np.unique(masks3D) if label != 0 ]
             features.extend(features_z)
-        
+
         # copy the feature list
         zIndexList = [ z for z, old_label, ft in features if ft != None ]
         oldLabelList = [ old_label for z, old_label, ft in features if ft != None]
@@ -326,7 +326,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             distance_cutoff = self.parameters['connect_distance'])
 
         if self.parameters['write_mask_images']:
-            # stacked_images[:,-1,:,:] = masks
+
             maskImageDescription = self.dataSet.analysis_tiff_description(
                     1, len(stacked_images))
         
@@ -346,11 +346,11 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
                             photometric='MINISBLACK',
                             metadata=maskImageDescription)
         
+        zPos = np.array(self.dataSet.get_data_organization().get_z_positions())
         # obtain the z index for each feature
         featureList = [ spatialfeature.SpatialFeature.feature_from_label_matrix(
             masks == label, fragmentIndex, 
-            globalTask.fov_to_global_transform(fragmentIndex),
-            list(np.unique(np.where(masks == label)[0]))) \
+            globalTask.fov_to_global_transform(fragmentIndex), zPos)
             for label in np.unique(masks) if label != 0 ]
 
         featureDB = self.get_feature_database()
@@ -495,11 +495,11 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
                     self.dataSet.get_image_dimensions()[1]))) \
                 for x in masks ]).astype(np.uint16)
 
+        zPos = np.array(self.dataSet.get_data_organization().get_z_positions())
         # obtain the z index for each feature
         featureList = [ spatialfeature.SpatialFeature.feature_from_label_matrix(
             masks == label, fragmentIndex, 
-            globalTask.fov_to_global_transform(fragmentIndex),
-            list(np.unique(np.where(masks == label)[0]))) \
+            globalTask.fov_to_global_transform(fragmentIndex), zPos)
             for label in np.unique(masks) if label != 0 ]
 
         featureDB = self.get_feature_database()
@@ -675,7 +675,7 @@ class ExportCellMetadata(analysistask.AnalysisTask):
 
     def _run_analysis(self):
         df = self.segmentTask.get_feature_database().read_feature_metadata()
-
+        print(df)
         self.dataSet.save_dataframe_to_csv(df, 'feature_metadata',
                                            self.analysisName, index=False)
         

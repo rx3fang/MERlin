@@ -30,7 +30,7 @@ class BarcodeDB:
             of all pixels covered by the barcode weighted by the magnitude
             of each pixel
         global_x, global_y, global_z - the global x,y,z position of the barcode
-        cell_index - the cell that contains this barcode
+        cell_index - the cell that contains this barcode, cell_index is a string now
         intensity_i - the mean intensity across corresponding pixels for
             bit i where i is an integer from 0 to the number of bits-1.
     """
@@ -57,7 +57,9 @@ class BarcodeDB:
                              'global_x': np.float32,
                              'global_y': np.float32,
                              'global_z': np.float32,
-                             'cell_index': np.int32}
+                             'cell_index': str 
+                             # change cell_index to string
+                         }
 
         for i in range(self._codebook.get_bit_count()):
             columnInformation['intensity_'+str(i)] = np.float32

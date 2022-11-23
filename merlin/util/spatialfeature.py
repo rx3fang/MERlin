@@ -26,7 +26,7 @@ class SpatialFeature(object):
     """
 
     def __init__(self, boundaryList: List[List[geometry.Polygon]], fov: int,
-                 zCoordinates: np.array = None, uniqueID: int = None,
+                 zCoordinates: np.array = None, uniqueID: str = None,
                  label: int = -1, x: float = None, y: float = None) -> None:
         """Create a new feature specified by a list of pixels
 
@@ -41,7 +41,7 @@ class SpatialFeature(object):
             zCoordinates: the z position for each of the z indexes. If not
                 specified, each z index is assumed to have unit height.
             uniqueID: the uuid of this feature. If no uuid is specified,
-                a new uuid is randomly generated.
+                a new uuid is randomly generated. uniqueID is a string.
             label: unused
             x: the cenroid x position in the current field view
             y: the cenroid y position in the current field view
@@ -50,7 +50,9 @@ class SpatialFeature(object):
         self._fov = fov
 
         if uniqueID is None:
-            self._uniqueID = uuid.uuid4().int
+            # change unique_id to be string
+            #self._uniqueID = uuid.uuid4().int
+            self._uniqueID = uuid.uuid4().hex
         else:
             self._uniqueID = uniqueID
         
@@ -178,7 +180,7 @@ class SpatialFeature(object):
     def get_boundaries_fov(self) -> List[List[geometry.Polygon]]:
         return self._boundaryListFov
 
-    def get_feature_id(self) -> int:
+    def get_feature_id(self) -> str:
         return self._uniqueID
 
     def get_z_coordinates(self) -> np.ndarray:
@@ -287,6 +289,56 @@ class SpatialFeature(object):
                     return False
 
         return True
+
+    def contains_point_global_z(self, point: geometry.Point, zPos: float) -> bool:
+        """Determine if this spatial feature contains the specified point.
+
+        Args:
+            point: the point to check
+            zPos: the global z position this point corresponds to
+        Returns:
+            True if the boundaries of this spatial feature in the zPos plane
+                contain the given point.
+        """
+        zIndex = np.where(np.array(self._zCoordinates) == zPos)[0][0]
+        for boundaryElement in self.get_boundaries()[zIndex]:
+            if boundaryElement.contains(point):
+                return True
+        return False
+
+    def contains_positions_global_z(self, positionList: np.ndarray) -> np.ndarray:
+        """Determine if this spatial feature contains the specified positions
+
+        Args:
+            positionList: a N x 3 numpy array containing the (x, y, z)
+                positions for N points where x and y are spatial coordinates
+                and z is the global z. 
+        Returns:
+            a numpy array of booleans containing true in the i'th index if
+                the i'th point provided is in this spatial feature.
+        """
+        boundaries = self.get_boundaries()
+
+        containmentList = np.zeros(positionList.shape[0], dtype=np.bool)
+        
+        for zPos in np.array(self._zCoordinates):
+            # this substantially speed up barcode partition which
+            # avoids testing every points in the FOV
+            (xmin, ymin, xmax, ymax) = self.get_bounding_box()
+            currentIndexes = np.where(
+                (positionList[:, 2] == zPos) & \
+                (positionList[:,0] > xmin) & \
+                (positionList[:,0] < xmax) & \
+                (positionList[:,1] > ymin) & \
+                (positionList[:,1] < ymax)
+                )[0]
+
+            currentContainment = [self.contains_point_global_z(
+                geometry.Point(x[0], x[1]), zPos)
+                for x in positionList[currentIndexes]]
+            containmentList[currentIndexes] = currentContainment
+
+        return containmentList
 
     def contains_point(self, point: geometry.Point, zIndex: int) -> bool:
         """Determine if this spatial feature contains the specified point.
@@ -445,9 +497,9 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
     def _save_feature_to_hdf5_group(h5Group: h5py.Group,
                                     feature: SpatialFeature,
                                     fov: int) -> None:
-        featureKey = str(feature.get_feature_id())
+        featureKey = feature.get_feature_id()
         featureGroup = h5Group.create_group(featureKey)
-        featureGroup.attrs['id'] = np.string_(feature.get_feature_id())
+        featureGroup.attrs['id'] = feature.get_feature_id()
         featureGroup.attrs['fov'] = fov
         featureGroup.attrs['x'] = feature._x
         featureGroup.attrs['y'] = feature._y
@@ -565,13 +617,17 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
 
                     allAttrKeys = []
                     allAttrValues = []
+                    allZcounts = []
                     for key in f['featuredata'].keys():
                         attrNames = list(f['featuredata'][key].attrs.keys())
                         attrValues = list(f['featuredata'][key].attrs.values())
+                        print(attrValues)
                         h5Group = f['featuredata'][key]
-                        zCount = len(np.array(h5Group["z_coordinates"]))
+                        zCount = len([x for x in h5Group.keys() if x.startswith('zIndex_')])
+                        zPos = h5Group['z_coordinates']
+                        zCount = 0
                         boundaryList = []
-                        for z in np.array(h5Group["z_coordinates"]):
+                        for z in range(len(zPos)):
                             zBoundaryList = []
                             zGroup = h5Group['zIndex_' + str(z)]
                             # polygon number
@@ -581,20 +637,28 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                                 zBoundaryList.append(
                                     HDF5SpatialFeatureDB._load_geometry_from_hdf5_group(
                                         zGroup['p_' + str(p)]))
+                            
+                            if len(zBoundaryList) == 0:
+                                continue
+                            
+                            zCount += 1
+                            # if multple polygons exist for one feature, we choose the one has the largest area size
                             maxIndex = np.array([ x.area for x in zBoundaryList ]).argmax()
                             boundaryList.append(zBoundaryList[maxIndex])
-
+                            
                         gdf = geopandas.GeoDataFrame(
                                 geometry = boundaryList)
                         gdf.geometry =  gdf.buffer(0)
                         
                         allAttrKeys.append(attrNames)
                         allAttrValues.append(attrValues + [gdf.area.sum()])
-                    
+                        allZcounts.append(zCount)
+                        
                     columns = list(np.unique(allAttrKeys)) + ["area"]
                     df = pandas.DataFrame(data=allAttrValues, columns=columns)
                     finalDF = df.loc[:, ['id', 'fov', 'num_z', 'area', 'x', 'y']].copy(deep=True)
-
+                    finalDF = finalDF.assign(num_z = allZcounts)
+                    
                     boundingBoxDF = pandas.DataFrame(
                         df['bounding_box'].values.tolist(),
                         index=finalDF.index)
@@ -608,7 +672,7 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                     finalDF['max_y'] = boundingBoxDF[3]
             except FileNotFoundError:
                 return pandas.DataFrame()
-
+                
         return finalDF
 
     def read_feature_geopandas(self, fov: int = None) -> geopandas.GeoDataFrame:
@@ -640,16 +704,18 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                     allAttrValues = []
                     allAttrGeoms = []
                     for key in f['featuredata'].keys():
+
                         attrNames = list(f['featuredata'][key].attrs.keys())
                         attrValues = list(f['featuredata'][key].attrs.values())
                         h5Group = f['featuredata'][key]
-                        zCount = len(np.array(h5Group["z_coordinates"]))
+                        
+                        zCount = len([x for x in h5Group.keys() if x.startswith('zIndex_')])
+                        zPos = h5Group['z_coordinates']
+
                         allAttrKeys.extend(attrNames)
                         
                         boundaryList = []
-                        for z in np.array(h5Group["z_coordinates"]):
-                            allAttrValues.append(
-                            	attrValues + [z])
+                        for z in range(zCount):
                 
                             zBoundaryList = []
                             zGroup = h5Group['zIndex_' + str(z)]
@@ -659,26 +725,32 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                                 zBoundaryList.append(
                                     HDF5SpatialFeatureDB._load_geometry_from_hdf5_group(
                                         zGroup['p_' + str(p)]))
+
+                            if len(zBoundaryList) == 0:
+                                continue
+
                             # if multple polygons exist for one feature, we choose the one has the largest area size
                             maxIndex = np.array([ x.area for x in zBoundaryList ]).argmax()
                             boundaryList.append(zBoundaryList[maxIndex])
-                        
+                            allAttrValues.append(
+                            	attrValues + [z] + [zPos[z]])
+
                         geom = geopandas.GeoDataFrame(
                                 geometry = boundaryList
                                 ).geometry
                         allAttrGeoms.extend(geom)
                     
-                    columns = list(np.unique(allAttrKeys)) + ["z"]
+                    columns = list(np.unique(allAttrKeys)) + ["z"] + ["global_z"]
                     gdf = geopandas.GeoDataFrame(data=allAttrValues, 
-                    					  columns=columns, 
-                    					  geometry=allAttrGeoms)
+                    					         columns=columns, 
+                    					         geometry=allAttrGeoms)
                     # avoid invalid polygon
                     gdf.geometry =  gdf.buffer(0)
                 	
                     gdf = gdf.assign(area = gdf.area)
                     gdf.id = list(map(str, gdf['id']))
                     finalGDF = gdf.loc[:, 
-                        ["id", "fov", "area", "x", "y", "z", "geometry"]
+                        ["id", "fov", "area", "x", "y", "z", "global_z", "geometry"]
                             ].copy(deep=True)
                     
                     boundingBoxDF = pandas.DataFrame(

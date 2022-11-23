@@ -3,6 +3,7 @@ import numpy as np
 
 from merlin.core import analysistask
 from merlin.util import spatialfeature
+from merlin.util import barcodedb
 
 class PartitionBarcodes(analysistask.ParallelAnalysisTask):
 
@@ -27,7 +28,14 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
         return [self.parameters['filter_task'],
                 self.parameters['assignment_task'],
                 self.parameters['alignment_task']]
+    
+    def get_barcode_database(self) -> barcodedb.BarcodeDB:
+        """ Get the barcode database this analysis task saves barcodes into.
 
+        Returns: The barcode database reference.
+        """
+        return barcodedb.PyTablesBarcodeDB(self.dataSet, self)
+        
     def get_partitioned_barcodes(self, fov: int = None) -> pandas.DataFrame:
         """Retrieve the cell by barcode matrixes calculated from this
         analysis task.
@@ -73,7 +81,7 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
                     [currentFOVBarcodes, partialBC], 0)
 
         currentFOVBarcodes = currentFOVBarcodes.reset_index().copy(deep=True)
-
+        
         sDB = assignmentTask.get_feature_database()
         currentCells = sDB.read_features(fragmentIndex)
 
@@ -81,11 +89,26 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
             data=np.zeros((len(currentCells), barcodeCount)),
             columns=range(barcodeCount),
             index=[x.get_feature_id() for x in currentCells])
+        
+        # this is necessay because the old MERlin force cell_index to be an
+        # integer np.int64. This will make it comptiable with previous 
+        # merlin decoding results
+        currentFOVBarcodes.cell_index = \
+            currentFOVBarcodes.cell_index.astype(str)    
 
         for cell in currentCells:
-            contained = cell.contains_positions(currentFOVBarcodes.loc[:,
-                                                ['global_x', 'global_y',
-                                                 'z']].values)
+            # change contains_positions to contains_positions_global_z
+            # which allows barcode partition based on the global z
+            # coordinates rather than z Index. Z indedx can be confusing
+            # and requires segmentation images to be the same with 
+            # barcode images, sometime this may not be true
+            contained = cell.contains_positions_global_z(
+                    currentFOVBarcodes.loc[:,['global_x', 'global_y',
+                                             'global_z']].values)
+            
+            if True in contained:
+                currentFOVBarcodes.loc[contained, "cell_index"] = \
+                    cell.get_feature_id().astype(str)
             count = currentFOVBarcodes[contained].groupby('barcode_id').size()
             count = count.reindex(range(barcodeCount), fill_value=0)
             countsDF.loc[cell.get_feature_id(), :] = count.values.tolist()
@@ -98,6 +121,9 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
                 countsDF, 'counts_per_cell', self.get_analysis_name(),
                 fragmentIndex)
 
+        bcDatabase = self.get_barcode_database()
+        bcDatabase.write_barcodes(currentFOVBarcodes, 
+                                  fov=fragmentIndex)
 
 class ExportPartitionedBarcodes(analysistask.AnalysisTask):
 
