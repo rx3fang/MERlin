@@ -57,12 +57,12 @@ class BarcodeDB:
                              'global_x': np.float32,
                              'global_y': np.float32,
                              'global_z': np.float32,
-                             'cell_index': str 
-                             # change cell_index to string
+                             'cell_index': str
                          }
-
-        for i in range(self._codebook.get_bit_count()):
-            columnInformation['intensity_'+str(i)] = np.float32
+        
+        # this is not necessary
+        #for i in range(self._codebook.get_bit_count()):
+        #    columnInformation['intensity_'+str(i)] = np.float32
 
         return columnInformation
 

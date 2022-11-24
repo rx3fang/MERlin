@@ -121,7 +121,6 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
                 countsDF, 'counts_per_cell', self.get_analysis_name(),
                 fragmentIndex)
         
-
         bcDatabase = self.get_barcode_database()
         bcDatabase.write_barcodes(currentFOVBarcodes, 
                                   fov=fragmentIndex)

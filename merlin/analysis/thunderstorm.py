@@ -175,15 +175,16 @@ class Thunderstorm(ThunderstormSavingParallelAnalysisTask):
         
         barcodeId = dict(zip(list(range(bitCount * zPositionCount)), 
             list(range(bitCount)) * zPositionCount))
-
-        barcodeZ = dict(zip(list(range(bitCount * zPositionCount)), 
+        
+        zPos = np.array(self.dataSet.get_data_organization().get_z_positions())
+        barcodeZindex = dict(zip(list(range(bitCount * zPositionCount)), 
             list(np.repeat(np.arange(zPositionCount),bitCount))))
         
-        barcodes = barcodes.assign(
-            barcode_id = [ barcodeId[i] for i in barcodes.frame ])
+        barcodeZpos = dict(zip(list(range(bitCount * zPositionCount)),
+            list(np.repeat(zPos,bitCount))))
 
         barcodes = barcodes.assign(
-            z = [ barcodeZ[i] for i in barcodes.frame ])
+            barcode_id = [ barcodeId[i] for i in barcodes.frame ])
 
         barcodes = barcodes.assign(x = barcodes["x [nm]"] / pixelSize)
         barcodes = barcodes.assign(y = barcodes["y [nm]"] / pixelSize)
@@ -197,9 +198,12 @@ class Thunderstorm(ThunderstormSavingParallelAnalysisTask):
         
         barcodes = barcodes.assign(global_x = global_x)
         barcodes = barcodes.assign(global_y = global_y)
-        barcodes = barcodes.assign(
-            global_z = [ barcodeZ[i] for i in barcodes.frame ])
         
+        barcodes = barcodes.assign(
+            global_z = [ barcodeZpos[i] for i in barcodes.frame ])
+        barcodes = barcodes.assign(
+            z = [ barcodeZindex[i] for i in barcodes.frame ])
+
         # this is required for partioning barcodes.
         barcodes = barcodes.assign(fov = fragmentIndex)
         barcodes = barcodes.assign(mean_intensity = barcodes["intensity [photon]"])
@@ -207,7 +211,7 @@ class Thunderstorm(ThunderstormSavingParallelAnalysisTask):
         barcodes = barcodes.assign(area = 1)
         barcodes = barcodes.assign(mean_distance = 1)
         barcodes = barcodes.assign(min_distance = 1)
-        barcodes = barcodes.assign(cell_index = -1)
+        barcodes = barcodes.assign(cell_index = str(-1))
 
         # remove barcodes within the edge
         barcodes = barcodes[barcodes.x >= self.crop_width]
