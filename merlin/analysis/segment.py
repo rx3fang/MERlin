@@ -202,8 +202,8 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
     def _connect_2D_masks_to_3D_masks(self, 
                                       masks2D,
                                       fragmentIndex,
-                                      n_neighbors: int = 5,
-                                      distance_cutoff: float = 3.0):
+                                      n_neighbors: int = 15,
+                                      distance_cutoff: float = 2.5):
         
         from sklearn.neighbors import NearestNeighbors
         import numpy as np
@@ -234,13 +234,19 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         if len(featuresList) <= 1:
             return masks2D.astype(np.uint16)
 
-        # get the centroid positions in global_x, global_y, global_z
+        ## get the centroid positions in global_x, global_y, global_z
+        #centroids = np.array([[
+        #    (x.get_bounding_box()[0] + x.get_bounding_box()[2]) / 2,
+        #    (x.get_bounding_box()[1] + x.get_bounding_box()[3]) / 2,
+        #     zPos[x.get_z_coordinates()[0]]] \
+        #    for x in featuresList ])
+
+        # get the centroid positions in global_x, global_y
         centroids = np.array([[
             (x.get_bounding_box()[0] + x.get_bounding_box()[2]) / 2,
-            (x.get_bounding_box()[1] + x.get_bounding_box()[3]) / 2,
-             zPos[x.get_z_coordinates()[0]]] \
-            for x in featuresList ])
-        
+            (x.get_bounding_box()[1] + x.get_bounding_box()[3]) / 2 ] 
+                for x in featuresList ])
+
         # find k nearest neighbours
         n_neighbors = min(n_neighbors, centroids.shape[0])
         nbrs = NearestNeighbors(n_neighbors=n_neighbors, 
@@ -271,7 +277,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
         return masks3D.astype(np.uint16)
         
     def _run_analysis(self, fragmentIndex):
-        
+
         # load cellpose model
         if self.run_custom_model:
             model = models.CellposeModel(
@@ -311,7 +317,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             stacked_images[:,i,:,:] = images
 
         # Run the cellpose prediction
-        masks, flows, styles = model.eval(
+        masks_2d, flows, styles = model.eval(
             stacked_images,
             diameter = self.parameters['diameter'],
             flow_threshold = self.parameters['flow_threshold'],
@@ -321,7 +327,7 @@ class CellPoseSegment(FeatureSavingAnalysisTask):
             normalize = True) # always set to be true
 
         masks = self._connect_2D_masks_to_3D_masks(
-            masks, fragmentIndex,
+            masks_2d, fragmentIndex,
             n_neighbors = self.parameters['n_neighbors'],
             distance_cutoff = self.parameters['connect_distance'])
 
@@ -482,13 +488,13 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
                         photometric='MINISBLACK',
                         metadata=maskImageDescription)
         
-        with self.dataSet.writer_for_analysis_images(
-                self, 'feature', fragmentIndex) as outputTif:
-            for maskImage in stacked_images:
-                outputTif.save(
-                    maskImage.astype(np.uint16),
-                    photometric='MINISBLACK',
-                    metadata=maskImageDescription)
+            with self.dataSet.writer_for_analysis_images(
+                    self, 'feature', fragmentIndex) as outputTif:
+                for maskImage in stacked_images:
+                    outputTif.save(
+                        maskImage.astype(np.uint16),
+                        photometric='MINISBLACK',
+                        metadata=maskImageDescription)
 
         # upsample mask image to the original image size
         masks = np.array([ np.array(im.fromarray(x)\
