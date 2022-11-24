@@ -682,7 +682,6 @@ class ExportCellMetadata(analysistask.AnalysisTask):
 
     def _run_analysis(self):
         df = self.segmentTask.get_feature_database().read_feature_metadata()
-        print(df)
         self.dataSet.save_dataframe_to_csv(df, 'feature_metadata',
                                            self.analysisName, index=False)
         

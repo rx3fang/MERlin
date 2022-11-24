@@ -621,7 +621,6 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                     for key in f['featuredata'].keys():
                         attrNames = list(f['featuredata'][key].attrs.keys())
                         attrValues = list(f['featuredata'][key].attrs.values())
-                        print(attrValues)
                         h5Group = f['featuredata'][key]
                         zCount = len([x for x in h5Group.keys() if x.startswith('zIndex_')])
                         zPos = h5Group['z_coordinates']
