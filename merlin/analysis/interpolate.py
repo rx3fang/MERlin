@@ -97,6 +97,11 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
 
         if "fixed_channel" not in self.parameters:
             self.parameters['fixed_channel'] = 0
+        
+        if "channel_names" not in self.parameters:
+            self.parameters['channel_names'] = [ \
+                sel.get_data_channel_name(x) \
+                    for x in self.dataSet.get_data_channels() ]
 
         if "iterative_registration" not in self.parameters:
             self.parameters['iterative_registration'] = False
@@ -364,10 +369,14 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             np.save(fname, data)
 
     def _run_analysis(self, fragmentIndex: int):
+
         try:
             shifts3D = self.get_shift_pixel(fragmentIndex);
             shifts2D = self.get_transformation(fragmentIndex);
         except (FileNotFoundError, OSError, ValueError):
+            
+            dataChannels = self.dataSet.\
+                get_data_organization().get_data_channels()
 
             fixImage = np.array([self._filter(
                 self.dataSet.get_feature_fiducial_image(
@@ -378,11 +387,10 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             shifts2D = np.array([registration.phase_cross_correlation(
                 reference_image = fixImage,
                 moving_image = np.array([self._filter(
-                    self.dataSet.get_feature_fiducial_image(x, fragmentIndex))
-                                       ]),
+                    self.dataSet.get_feature_fiducial_image(
+                        x, fragmentIndex)) ]),
                 upsample_factor = 100)[0] for x in \
-                    self.dataSet.get_data_organization().get_data_channels()
-                                ])
+                    dataChannels ])
             
             self._save_transformations(
                 shifts2D, fragmentIndex)
@@ -409,8 +417,8 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
                     reference_image = fixImageStack,
                     moving_image = self._filter_set(
                         self.get_feature_image_set(x, fragmentIndex)),
-                    upsample_factor = 100)[0] for x in \
-                    self.dataSet.get_data_organization().get_data_channels()])
+                    upsample_factor = 100)[0] \
+                    for x in dataChannels ])
 
             if self.parameters['iterative_registration']:
                 # generate max index frame
@@ -442,7 +450,11 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
                 fragmentIndex);
 
         if self.parameters['write_aligned_features']:
-            dataChannels = self.dataSet.get_data_organization().get_data_channels()
+            dataChannels = [ self.dataSet.get_data_organization().\
+                    get_data_channel_index(x) \
+                for x in self.parameters['channel_names'] ]
+
+            
             for dataChannel in dataChannels:
                 imageSet = self.get_interpolated_feature_set(
                         fragmentIndex, dataChannel) 
@@ -469,7 +481,10 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
 
         # write down interpolated images
         if self.parameters['write_aligned_images']:
-            dataChannels = self.dataSet.get_data_organization().get_data_channels()
+            dataChannels = [ self.dataSet.get_data_organization().\
+                    get_data_channel_index(x) \
+                for x in self.parameters['channel_names'] ]
+
             for dataChannel in dataChannels:
                 imageSet = self.get_interpolated_image_set(
                         fragmentIndex, dataChannel) 
