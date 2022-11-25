@@ -455,7 +455,9 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
                     fragmentIndex, channel_id, zIndex,
                     chromaticCorrector = None) \
                         for zIndex in range(zPositionCount) ])
-            stacked_images[:,i,:,:] = images
+            stacked_images[:,i,:,:] = np.array([ 
+            	x / np.quantile(x, 0.999) * 1000 \
+            		for x in images])
             
         # rescale the image
         scaleFactor = self.dataSet.get_microns_per_pixel() / \
@@ -479,8 +481,7 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
         
         if self.parameters['write_mask_images']:
             maskImageDescription = self.dataSet.analysis_tiff_description(
-                1, len(stacked_images))
-
+                1, len(stacked_images) * 1)
             with self.dataSet.writer_for_analysis_images(
                     self, 'mask', fragmentIndex) as outputTif:
                 for maskImage in masks:
@@ -488,7 +489,9 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
                         maskImage.astype(np.uint16),
                         photometric='MINISBLACK',
                         metadata=maskImageDescription)
-        
+
+            maskImageDescription = self.dataSet.analysis_tiff_description(
+                1, len(stacked_images) * channelCount)
             with self.dataSet.writer_for_analysis_images(
                     self, 'feature', fragmentIndex) as outputTif:
                 for maskImage in stacked_images_downsampled:
