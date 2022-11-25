@@ -458,7 +458,7 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
         
         # rescale the image
         scaleFactor = self.dataSet.get_microns_per_pixel() / \
-            self.parameters['microns_per_pixel'] 
+            self.parameters['pixel_in_micron'] 
         
         stacked_images_downsampled = skimage.transform.rescale(
             stacked_images, 
