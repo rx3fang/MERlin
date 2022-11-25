@@ -108,6 +108,9 @@ class DataSet(object):
         self.analysisPath = os.sep.join([analysisHome, analysisDirectoryName])
         os.makedirs(self.analysisPath, exist_ok=True)
 
+        self.jobPath = os.sep.join([self.analysisPath, "merlin_jobs"])
+        os.makedirs(self.jobPath, exist_ok=True)
+
         self.logPath = os.sep.join([self.analysisPath, 'logs'])
         os.makedirs(self.logPath, exist_ok=True)
 
