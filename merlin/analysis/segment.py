@@ -455,7 +455,8 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
                     fragmentIndex, channel_id, zIndex,
                     chromaticCorrector = None) \
                         for zIndex in range(zPositionCount) ])
-        
+            stacked_images[:,i,:,:] = images
+            
         # rescale the image
         scaleFactor = self.dataSet.get_microns_per_pixel() / \
             self.parameters['pixel_in_micron'] 
@@ -490,7 +491,7 @@ class CellPoseSegment3D(FeatureSavingAnalysisTask):
         
             with self.dataSet.writer_for_analysis_images(
                     self, 'feature', fragmentIndex) as outputTif:
-                for maskImage in stacked_images:
+                for maskImage in stacked_images_downsampled:
                     outputTif.save(
                         maskImage.astype(np.uint16),
                         photometric='MINISBLACK',
