@@ -64,6 +64,9 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
         alignTask = self.dataSet.load_analysis_task(
             self.parameters['alignment_task'])
 
+        if "write_barcodes" not in self.parameters["write_barcodes"]:
+            self.parameters['write_barcodes'] = False
+
         fovBoxes = alignTask.get_fov_boxes()
         fovIntersections = sorted([i for i, x in enumerate(fovBoxes) if
                                    fovBoxes[fragmentIndex].intersects(x)])
@@ -120,9 +123,10 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
         self.dataSet.save_dataframe_to_csv(
                 countsDF, 'counts_per_cell', self.get_analysis_name(),
                 fragmentIndex)
-        
-        bcDatabase = self.get_barcode_database()
-        bcDatabase.write_barcodes(currentFOVBarcodes, 
+       
+        if self.parameters["write_barcodes"]:
+            bcDatabase = self.get_barcode_database()
+            bcDatabase.write_barcodes(currentFOVBarcodes, 
                                   fov=fragmentIndex)
         
 class ExportPartitionedBarcodes(analysistask.AnalysisTask):
