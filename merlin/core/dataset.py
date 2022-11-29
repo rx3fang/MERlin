@@ -1048,11 +1048,9 @@ class ImageDataSet(DataSet):
     
     def _import_chromatic_corrections(self, chromaticCorrectionsName):
         
-        if chromaticCorrectionsName is not None:
-            if not os.path.exists(chromaticCorrectionsName):
-                sourcePath = os.sep.join(
-                        [merlin.MICROSCOPE_PARAMETERS_HOME, 
-                        chromaticCorrectionsName])
+        sourcePath = os.sep.join(
+                [merlin.MICROSCOPE_PARAMETERS_HOME, 
+                chromaticCorrectionsName])
 
         destPath = os.sep.join(
                 [self.analysisPath, 'chromatic_corrections.pkl'])
@@ -1060,12 +1058,9 @@ class ImageDataSet(DataSet):
         shutil.copyfile(sourcePath, destPath) 
 
     def _import_illumination_corrections(self, illuminationCorrectionsName):
-        
-        if illuminationCorrectionsName is not None:
-            if not os.path.exists(illuminationCorrectionsName):
-                sourcePath = os.sep.join(
-                        [merlin.MICROSCOPE_PARAMETERS_HOME, 
-                        illuminationCorrectionsName])
+        sourcePath = os.sep.join(
+                [merlin.MICROSCOPE_PARAMETERS_HOME, 
+                illuminationCorrectionsName])
 
         destPath = os.sep.join(
                 [self.analysisPath, 'illumination_corrections.pkl'])
@@ -1073,11 +1068,9 @@ class ImageDataSet(DataSet):
         shutil.copyfile(sourcePath, destPath) 
 
     def _import_deepmerfish_model(self, modelName):
-        if modelName is not None:
-            if not os.path.exists(modelName):
-                sourcePath = os.sep.join(
-                        [merlin.DEEPMERFISH_PARAMETERS_HOME, 
-                        modelName])
+        sourcePath = os.sep.join(
+                [merlin.DEEPMERFISH_PARAMETERS_HOME, 
+                modelName])
 
         destPath = os.sep.join(
                 [self.analysisPath, 'DeepmerfishModel'])
