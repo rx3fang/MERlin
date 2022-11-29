@@ -63,9 +63,9 @@ class PartitionBarcodes(analysistask.ParallelAnalysisTask):
             self.parameters['assignment_task'])
         alignTask = self.dataSet.load_analysis_task(
             self.parameters['alignment_task'])
-
-        if "write_barcodes" not in self.parameters["write_barcodes"]:
-            self.parameters['write_barcodes'] = False
+        
+        if "write_barcodes" not in self.parameters:
+            self.parameters["write_barcodes"] = False
 
         fovBoxes = alignTask.get_fov_boxes()
         fovIntersections = sorted([i for i, x in enumerate(fovBoxes) if
