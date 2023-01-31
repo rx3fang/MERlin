@@ -748,7 +748,7 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                                 ).geometry
                         allAttrGeoms.extend(geom)
                     
-                    columns = list(np.unique(allAttrKeys)) + ["z"] + ["global_z"]
+                    columns = list(np.unique(allAttrKeys)) + ["z"] + ["center_z"]
                     gdf = geopandas.GeoDataFrame(data=allAttrValues, 
                     					         columns=columns, 
                     					         geometry=allAttrGeoms)
@@ -758,7 +758,7 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                     gdf = gdf.assign(area = gdf.area)
                     gdf.id = list(map(str, gdf['id']))
                     finalGDF = gdf.loc[:, 
-                        ["id", "fov", "area", "x", "y", "z", "global_z", "geometry"]
+                        ["id", "fov", "area", "x", "y", "z", "center_z", "geometry"]
                             ].copy(deep=True)
                     
                     boundingBoxDF = pandas.DataFrame(
