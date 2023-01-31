@@ -626,21 +626,30 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                         zPos = h5Group['z_coordinates']
                         zCount = 0
                         boundaryList = []
+                        zPosExist = []
+                        # note that zPos contains all imaged z positions in um
+                        # for instance, if we image 6um by 1um
+                        # zPos will be [1,2,3,4,5,6]
+                        # zPosExist is supposed to store which zpos a feature is present
                         for z in range(len(zPos)):
                             zBoundaryList = []
                             zGroup = h5Group['zIndex_' + str(z)]
                             # polygon number
                             pCount = len([x for x in zGroup.keys() if x[:2] == 'p_'])
+                            
                             # if there is multple polygons exist, we choose the one has the largest area size
                             for p in range(pCount):
                                 zBoundaryList.append(
                                     HDF5SpatialFeatureDB._load_geometry_from_hdf5_group(
                                         zGroup['p_' + str(p)]))
                             
+                            # this will filter zpos in which the current feature does not exist
                             if len(zBoundaryList) == 0:
                                 continue
                             
                             zCount += 1
+                            zPosExist.append(zPos[z])
+                            
                             # if multple polygons exist for one feature, we choose the one has the largest area size
                             maxIndex = np.array([ x.area for x in zBoundaryList ]).argmax()
                             boundaryList.append(zBoundaryList[maxIndex])
@@ -650,12 +659,12 @@ class HDF5SpatialFeatureDB(SpatialFeatureDB):
                         gdf.geometry =  gdf.buffer(0)
                         
                         allAttrKeys.append(attrNames)
-                        allAttrValues.append(attrValues + [gdf.area.sum()])
+                        allAttrValues.append(attrValues + [gdf.area.sum()] + [np.median(np.array(zPosExist))])
                         allZcounts.append(zCount)
                         
-                    columns = list(np.unique(allAttrKeys)) + ["area"]
+                    columns = list(np.unique(allAttrKeys)) + ["area"] + ["center_z"]
                     df = pandas.DataFrame(data=allAttrValues, columns=columns)
-                    finalDF = df.loc[:, ['id', 'fov', 'num_z', 'area', 'x', 'y']].copy(deep=True)
+                    finalDF = df.loc[:, ['id', 'fov', 'num_z', 'area', 'x', 'y', 'center_z']].copy(deep=True)
                     finalDF = finalDF.assign(num_z = allZcounts)
                     
                     boundingBoxDF = pandas.DataFrame(
