@@ -708,17 +708,29 @@ class ExportCellBoundaries(analysistask.AnalysisTask):
 
     def get_dependencies(self):
         return [self.parameters['segment_task']]
+    
+    def write_feature(self, gdf, fname):
+        chunkLabels = np.array([
+            np.random.randint(int(gdf.shape[0] / 1000)) \
+            for x in range(gdf.shape[0])])
+        
+        self.dataSet.save_geodataframe_to_shp(
+            gdf[chunkLabels == 0], fname,
+            self.analysisName, index=False, mode="w")
+
+        for x in range(1, max(chunkLabels) + 1):
+            self.dataSet.save_geodataframe_to_shp(
+                gdf[chunkLabels == x], fname,
+                self.analysisName, index=False, mode="a")
 
     def _run_analysis(self):
         gdf = self.segmentTask.get_feature_database().read_feature_geopandas()
-        self.dataSet.save_geodataframe_to_shp(gdf, 'feature_boundaries',
-                                          self.analysisName, index=False)
+        self.write_feature(gdf, "feature_boundaries")
+        
         gdf_max_list = []
         for ft_id in set(gdf.id):
             indexMax = gdf[gdf.id == ft_id].area.argmax()
             gdf_max_list.append(gdf[gdf.id == ft_id].iloc[[indexMax]])
         gdf_max = pandas.concat(gdf_max_list, 0)
 
-        self.dataSet.save_geodataframe_to_shp(gdf_max, 'feature_boundaries_max',
-                                           self.analysisName, index=False)
-
+        self.write_feature(gdf_max, "feature_boundaries_max")

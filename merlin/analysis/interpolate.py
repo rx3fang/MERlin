@@ -381,8 +381,7 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             fixImage = np.array([self._filter(
                 self.dataSet.get_feature_fiducial_image(
                     self.parameters['fixed_channel'], 
-                    fragmentIndex))
-                                ]);
+                    fragmentIndex)) ]);
 
             shifts2D = np.array([registration.phase_cross_correlation(
                 reference_image = fixImage,
@@ -454,7 +453,6 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
                     get_data_channel_index(x) \
                 for x in self.parameters['channel_names'] ]
 
-            
             for dataChannel in dataChannels:
                 imageSet = self.get_interpolated_feature_set(
                         fragmentIndex, dataChannel) 
