@@ -2,6 +2,10 @@ import numpy as np
 import pandas
 from scipy import optimize
 
+from sklearn.neighbors import NearestNeighbors
+from scipy.sparse.csgraph import connected_components
+from scipy.sparse import csr_matrix
+
 from merlin.core import analysistask
 from merlin.analysis import decode
 
@@ -520,3 +524,79 @@ class AdaptiveFilterBarcodes(AbstractFilterBarcodes):
 
         bcDatabase.write_barcodes(adaptiveTask.extract_barcodes_with_threshold(
             threshold, currentBarcodes), fov=fragmentIndex)
+
+
+class RomoveOverlapBarcodes(AbstractFilterBarcodes):
+
+    """
+    An analysis task that filters potential ovrlapping barcodes
+    due to dense imaging along the z axel.
+    """
+
+    def __init__(self, dataSet, parameters=None, analysisName=None):
+        super().__init__(dataSet, parameters, analysisName)
+
+        if 'distance_offcut' not in self.parameters:
+            self.parameters['distance_offcut'] = 1.1
+
+    def fragment_count(self):
+        return len(self.dataSet.get_fovs())
+
+    def get_estimated_memory(self):
+        return 1000
+
+    def get_estimated_time(self):
+        return 30
+
+    def get_dependencies(self):
+        return [self.parameters['filter_task']]
+
+    def _run_analysis(self, fragmentIndex):
+        filterTask = self.dataSet.load_analysis_task(
+            self.parameters['filter_task'])
+        
+        distance_offcut = self.parameters['distance_offcut']
+
+        bcDB = filterTask.get_barcode_database()
+        barcodes = bcDB.get_barcodes(fragmentIndex)
+        
+        barcodeFiltered = []
+        for barcode_id in barcodes.barcode_id.value_counts().index:
+            y_sub = barcodes[barcodes.barcode_id == barcode_id]
+            centroids = np.array([y_sub.global_x, y_sub.global_y, y_sub.global_z]).T
+            if centroids.shape[0] < 2:
+                barcodeFiltered.append(y_sub)
+                continue
+
+            n_neighbors = 2
+            nbrs = NearestNeighbors(n_neighbors=n_neighbors, 
+                                algorithm='ball_tree').fit(centroids)
+            distances, indices = nbrs.kneighbors(centroids)
+    
+            # create knn graph
+            graph = np.zeros((centroids.shape[0], centroids.shape[0]))
+            np.fill_diagonal(graph, 1)
+            for i in range(len(indices)):
+                idx = indices[i][1]
+                dst = distances[i][1]
+                if dst < distance_cutoff:
+                    graph[i,idx] = 1
+    
+            # identify connectied components
+            n_components, newLabelList = connected_components(
+                csgraph=csr_matrix(graph), directed=False, 
+                return_labels=True)
+    
+            # randomly pick up one molecules=
+            idxSel = np.array([ np.random.choice(np.where(newLabelList == j)[0]) \
+                for j in range(n_components) ])
+    
+            # append barcodes
+            barcodeFiltered.append(y_sub.iloc[idxSel])
+
+        barcodeFiltered = pd.concat(barcodeFiltered, axis=0)
+        
+        bcDatabase = self.get_barcode_database()
+        bcDatabase.write_barcodes(barcodeFiltered, fov=fragmentIndex)
+        
+
