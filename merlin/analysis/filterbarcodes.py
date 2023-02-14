@@ -526,7 +526,7 @@ class AdaptiveFilterBarcodes(AbstractFilterBarcodes):
             threshold, currentBarcodes), fov=fragmentIndex)
 
 
-class RomoveOverlapBarcodes(AbstractFilterBarcodes):
+class RemoveOverlapBarcodes(AbstractFilterBarcodes):
 
     """
     An analysis task that filters potential ovrlapping barcodes
