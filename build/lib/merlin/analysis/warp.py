@@ -196,7 +196,7 @@ class FiducialCorrelationWarp(Warp):
         # TODO - this can be more efficient since some images should
         # use the same alignment if they are from the same imaging round
         fixedImage = self._filter(
-            self.dataSet.get_fiducial_image(5, fragmentIndex))
+            self.dataSet.get_fiducial_image(0, fragmentIndex))
         offsets = [feature.register_translation(
             fixedImage,
             self._filter(self.dataSet.get_fiducial_image(x, fragmentIndex)),

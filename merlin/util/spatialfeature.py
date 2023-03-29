@@ -85,16 +85,18 @@ class SpatialFeature(object):
                 specified, each z index is assumed to have unit height.
         Returns: the new feature
         """
+        # only extract features in images that contains the feature
+        boundariesFov = [SpatialFeature._extract_boundaries(x) \
+                            if True in x else [] \
+                            for x in labelMatrix]
 
-        boundariesFov = [SpatialFeature._extract_boundaries(x)
-                      for x in labelMatrix]
-        
         featureLocal = SpatialFeature([SpatialFeature._remove_invalid_boundaries(
                     SpatialFeature._remove_interior_boundaries(
                         [geometry.Polygon(x) for x in b if len(x) > 2]))
                                        for b in boundariesFov], 
                                        fov = fov, 
                                        zCoordinates = zCoordinates)
+        
         # fix ValueError: not enough values to unpack (expected 4, got 0)
         if len(featureLocal.get_bounding_box()) != 4:
             return None
