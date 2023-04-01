@@ -699,7 +699,7 @@ class ExportCellBoundaries(analysistask.AnalysisTask):
         
         self.segmentTask = self.dataSet.load_analysis_task(
             self.parameters['segment_task'])
-
+        
     def get_estimated_memory(self):
         return 2048
 
@@ -716,12 +716,13 @@ class ExportCellBoundaries(analysistask.AnalysisTask):
     def _run_analysis(self):
         gdf = self.segmentTask.get_feature_database().read_feature_geopandas()
         self.write_feature(gdf, "feature_boundaries")
-        gdf_max_list = []
-        for ft_id in set(gdf.id):
-            indexMax = gdf[gdf.id == ft_id].area.argmax()
-            gdf_max_list.append(gdf[gdf.id == ft_id].iloc[[indexMax]])
-        gdf_max = pandas.concat(gdf_max_list, 0)
-        self.write_feature(gdf_max, "feature_boundaries_max")
+        
+        # gdf_max_list = []
+        # for ft_id in set(gdf.id):
+        #     indexMax = gdf[gdf.id == ft_id].area.argmax()
+        #     gdf_max_list.append(gdf[gdf.id == ft_id].iloc[[indexMax]])
+        # gdf_max = pandas.concat(gdf_max_list, 0)
+        # self.write_feature(gdf_max, "feature_boundaries_max")
 
 
 
