@@ -50,6 +50,7 @@ class PixelBasedDecoder(object):
                       distanceThreshold: float=0.5176,
                       magnitudeThreshold: float=1,
                       lowPassSigma: float=1):
+        
         """Assign barcodes to the pixels in the provided image stock.
 
         Each pixel is assigned to the nearest barcode from the codebook if
@@ -381,10 +382,16 @@ class PixelBasedDecoder(object):
     
     
     def extract_barcodes_with_index(
-            self, barcodeIndex: int, decodedImage: np.ndarray,
-            pixelMagnitudes: np.ndarray, pixelTraces: np.ndarray,
-            distances: np.ndarray, fov: int, cropWidth: int, zIndex: int = None,
-            globalAligner=None, minimumArea: int = 0
+            self, barcodeIndex: int, 
+            decodedImage: np.ndarray,
+            pixelMagnitudes: np.ndarray, 
+            pixelTraces: np.ndarray,
+            distances: np.ndarray, 
+            fov: int, 
+            cropWidth: int, 
+            zIndex: int = None,
+            globalAligner=None, 
+            minimumArea: int = 1
     ) -> pandas.DataFrame:
         """Extract the barcode information from the decoded image for barcodes
         that were decoded to the specified barcode index.
