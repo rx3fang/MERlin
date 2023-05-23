@@ -139,12 +139,12 @@ class Decode(BarcodeSavingParallelAnalysisTask):
         if 'optimize_task' in self.parameters:
             optimizeTask = self.dataSet.load_analysis_task(
             		self.parameters['optimize_task'])
-            scaleFactors = optimizeTask.get_scale_factors() / 5
+            scaleFactors = optimizeTask.get_scale_factors() 
             backgrounds = optimizeTask.get_backgrounds()
             chromaticCorrector = optimizeTask.get_chromatic_corrector()
         else:
             codebook = self.get_codebook()
-            scaleFactors = np.ones(self.get_codebook().get_bit_count()) / 5
+            scaleFactors = np.ones(self.get_codebook().get_bit_count())
             backgrounds = np.zeros(self.get_codebook().get_bit_count())
             chromaticCorrector = aberration.RigidChromaticCorrector(
                 self._get_initial_chromatic_corrector(), 
