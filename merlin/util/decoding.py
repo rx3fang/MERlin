@@ -380,7 +380,6 @@ class PixelBasedDecoder(object):
 
         return fullDF
     
-    
     def extract_barcodes_with_index(
             self, barcodeIndex: int, 
             decodedImage: np.ndarray,
