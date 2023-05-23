@@ -41,7 +41,7 @@ class DeconvolutionPreprocess(Preprocess):
         super().__init__(dataSet, parameters, analysisName)
 
         if 'highpass_sigma' not in self.parameters:
-            self.parameters['highpass_sigma'] = 2
+            self.parameters['highpass_sigma'] = 3
         # disable deconvolution
         if 'decon_sigma' not in self.parameters:
             self.parameters['decon_sigma'] = -1

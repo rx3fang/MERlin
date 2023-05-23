@@ -53,13 +53,13 @@ class Decode(BarcodeSavingParallelAnalysisTask):
         if 'write_processed_images' not in self.parameters:
             self.parameters['write_processed_images'] = False
         if 'minimum_area' not in self.parameters:
-            self.parameters['minimum_area'] = 0
+            self.parameters['minimum_area'] = 2
         if 'magnitude_threshold' not in self.parameters:
             self.parameters['magnitude_threshold'] = 10
         if 'distance_threshold' not in self.parameters:
             self.parameters['distance_threshold'] = 0.65
         if 'lowpass_sigma' not in self.parameters:
-            self.parameters['lowpass_sigma'] = 1
+            self.parameters['lowpass_sigma'] = 0
         if 'decode_3d' not in self.parameters:
             self.parameters['decode_3d'] = False
         if 'memory_map' not in self.parameters:
