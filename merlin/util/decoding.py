@@ -107,7 +107,7 @@ class PixelBasedDecoder(object):
         pixelMagnitudes = np.array(
             [np.linalg.norm(x) for x in scaledPixelTraces], dtype=np.float32)
         pixelMagnitudes[pixelMagnitudes == 0] = 1
-
+        pixelMagnitudes = pixelMagnitudes / 5
         normalizedPixelTraces = scaledPixelTraces/pixelMagnitudes[:, None]
 
         neighbors = NearestNeighbors(n_neighbors=1, algorithm='ball_tree')
@@ -120,7 +120,7 @@ class PixelBasedDecoder(object):
             np.array([i[0] if d[0] <= distanceThreshold else -1
                       for i, d in zip(indexes, distances)], dtype=np.int16),
             filteredImages.shape[1:])
-
+        pixelMagnitudes = pixelMagnitudes / 2.5
         pixelMagnitudes = np.reshape(pixelMagnitudes, filteredImages.shape[1:])
         normalizedPixelTraces = np.moveaxis(normalizedPixelTraces, 1, 0)
         normalizedPixelTraces = np.reshape(
@@ -213,7 +213,7 @@ class PixelBasedDecoder(object):
             np.array([i[0] if d[0] <= distanceThreshold else -1
                       for i, d in zip(indexes, distances)], dtype=np.int16),
             filteredImages.shape[1:])
-
+        pixelMagnitudes = pixelMagnitudes / 2.5
         pixelMagnitudes = np.reshape(pixelMagnitudes, filteredImages.shape[1:])
         normalizedPixelTraces = np.moveaxis(normalizedPixelTraces, 1, 0)
         normalizedPixelTraces = np.reshape(

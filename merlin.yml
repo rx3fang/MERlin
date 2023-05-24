@@ -132,6 +132,7 @@ dependencies:
       - llvmlite==0.39.1
       - markupsafe==2.1.1
       - matplotlib==3.3.0
+      - merlin==2.2.6
       - munch==2.5.0
       - natsort==8.2.0
       - nbformat==5.7.1
@@ -192,6 +193,7 @@ dependencies:
       - typing-extensions==4.4.0
       - urllib3==1.26.13
       - wrapt==1.14.1
+      - xlrd==2.0.1
       - xmltodict==0.13.0
       - zipp==3.11.0
 prefix: /opt/anaconda3/envs/merlin_3.8

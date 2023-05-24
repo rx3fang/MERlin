@@ -396,7 +396,7 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
             self.dataSet.save_numpy_analysis_result(
                 scaleFactors, 'scale_factors', self.analysisName)
 
-            return scaleFactors * 5
+            return scaleFactors
     
     def get_pixel_score_machine(self):
         """Get the final, optimized pixel scoring machine.

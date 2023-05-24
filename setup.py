@@ -8,7 +8,7 @@ CLASSIFIERS = [
     "Operating System :: Unix",
     "Operating System :: MacOS :: MacOS X",
     "License  :: Restricted use",
-    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.8",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 
@@ -17,7 +17,7 @@ install_requires = [line.rstrip() for line in open(
 
 setuptools.setup(
     name="merlin",
-    version="2.2.5",
+    version="2.2.6",
     description="MERFISH decoding software",
     author=[ "Rongxin Fang"],
     author_email="r3fang@fas.harvard.edu",
