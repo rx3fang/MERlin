@@ -32,8 +32,8 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
             self.parameters['optimize_background'] = False
         if 'optimize_chromatic_correction' not in self.parameters:
             self.parameters['optimize_chromatic_correction'] = False
-        if 'low_pass_sigma' not in self.parameters:
-            self.parameters['low_pass_sigma'] = 0
+        if 'lowpass_sigma' not in self.parameters:
+            self.parameters['lowpass_sigma'] = 1
         if 'crop_width' not in self.parameters:
             self.parameters['crop_width'] = 102
         if 'distance_threshold' not in self.parameters:
@@ -124,7 +124,7 @@ class OptimizeIteration(decode.BarcodeSavingParallelAnalysisTask):
         di, pm, npt, d = decoder.decode_pixels(
             warpedImages, scaleFactors, backgrounds,
             distanceThreshold=self.parameters['distance_threshold'],
-            lowPassSigma=self.parameters['low_pass_sigma'],
+            lowPassSigma=self.parameters['lowpass_sigma'],
             magnitudeThreshold=self.parameters['magnitude_threshold'])
         
         # save decoded images

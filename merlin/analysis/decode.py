@@ -59,7 +59,7 @@ class Decode(BarcodeSavingParallelAnalysisTask):
         if 'distance_threshold' not in self.parameters:
             self.parameters['distance_threshold'] = 0.65
         if 'lowpass_sigma' not in self.parameters:
-            self.parameters['lowpass_sigma'] = 0
+            self.parameters['lowpass_sigma'] = 1
         if 'decode_3d' not in self.parameters:
             self.parameters['decode_3d'] = False
         if 'memory_map' not in self.parameters:
