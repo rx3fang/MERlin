@@ -15,7 +15,7 @@ DATA_HOME=gc://r3fang_east4/merfish_raw_data
 ANALYSIS_HOME=/home/r3fang_g_harvard_edu/merlin_analysis
 PARAMETERS_HOME=/home/r3fang_g_harvard_edu/merlin_parameters
 
-# guava
+# Setup default parameters
 DATA_HOME=/home/r3fang/NAS/Fang/RawData/MERFISH2
 ANALYSIS_HOME=/home/r3fang/NAS/Fang/r3fang/MERFISH/merlin_analysis
 PARAMETERS_HOME=/home/r3fang/NAS/Fang/r3fang/MERFISH/merlin_parameters
