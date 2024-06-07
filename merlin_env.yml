@@ -1,87 +1,86 @@
-name: merlin_3.8
+name: merlin_env
 channels:
-  - r
   - conda-forge
   - defaults
 dependencies:
-  - _ipython_minor_entry_point=8.7.0=h3b92ee0_0
-  - _libgcc_mutex=0.1=conda_forge
-  - _openmp_mutex=4.5=2_gnu
-  - asttokens=2.2.1=pyhd8ed1ab_0
-  - backcall=0.2.0=pyh9f0ad1d_0
-  - backports=1.0=pyhd8ed1ab_3
-  - backports.functools_lru_cache=1.6.4=pyhd8ed1ab_0
-  - blosc=1.21.3=hafa529b_0
-  - bzip2=1.0.8=h7f98852_4
-  - ca-certificates=2022.12.7=ha878542_0
-  - comm=0.1.2=pyhd8ed1ab_0
-  - debugpy=1.6.4=py38hfa26641_0
-  - decorator=5.1.1=pyhd8ed1ab_0
-  - entrypoints=0.4=pyhd8ed1ab_0
-  - executing=1.2.0=pyhd8ed1ab_0
-  - geos=3.8.0=he1b5a44_1
-  - hdf5=1.10.4=nompi_h3c11f04_1106
-  - ipykernel=6.19.4=pyh210e3f2_0
-  - ipython=8.7.0=pyh41d4057_0
-  - jedi=0.18.2=pyhd8ed1ab_0
-  - jupyter_client=7.4.8=pyhd8ed1ab_0
-  - jupyter_core=5.1.0=py38h578d9bd_0
-  - ld_impl_linux-64=2.39=hcc3a1bd_1
-  - libblas=3.9.0=8_openblas
-  - libcblas=3.9.0=8_openblas
-  - libffi=3.3=h58526e2_2
-  - libgcc-ng=12.2.0=h65d4601_19
-  - libgfortran-ng=7.5.0=h14aa051_20
-  - libgfortran4=7.5.0=h14aa051_20
-  - libgomp=12.2.0=h65d4601_19
-  - liblapack=3.9.0=8_openblas
-  - libopenblas=0.3.12=pthreads_hb3c22a3_1
-  - libsodium=1.0.18=h36c2ea0_1
-  - libspatialindex=1.9.3=h9c3ff4c_4
-  - libsqlite=3.40.0=h753d276_0
-  - libstdcxx-ng=12.2.0=h46fd767_19
-  - libzlib=1.2.13=h166bdaf_4
-  - lz4-c=1.9.3=h9c3ff4c_1
-  - lzo=2.10=h516909a_1000
-  - matplotlib-inline=0.1.6=pyhd8ed1ab_0
-  - mock=4.0.3=pyhd8ed1ab_4
-  - ncurses=6.3=h27087fc_1
-  - nest-asyncio=1.5.6=pyhd8ed1ab_0
-  - nomkl=1.0=h5ca1d4c_0
-  - numexpr=2.8.3=py38h36ff5c2_101
-  - openssl=1.1.1s=h0b41bf4_1
-  - packaging=22.0=pyhd8ed1ab_0
-  - parso=0.8.3=pyhd8ed1ab_0
-  - pexpect=4.8.0=pyh1a96a4e_2
-  - pickleshare=0.7.5=py_1003
-  - pip=22.3.1=pyhd8ed1ab_0
-  - platformdirs=2.6.0=pyhd8ed1ab_0
-  - prompt-toolkit=3.0.36=pyha770c72_0
-  - psutil=5.9.4=py38h0a891b7_0
-  - ptyprocess=0.7.0=pyhd3deb0d_0
-  - pure_eval=0.2.2=pyhd8ed1ab_0
-  - pygments=2.13.0=pyhd8ed1ab_0
-  - pytables=3.6.1=py38h9fd0a39_0
-  - python=3.8.13=haa1d7c7_1
-  - python-dateutil=2.8.2=pyhd8ed1ab_0
-  - python_abi=3.8=2_cp38
-  - pyzmq=24.0.1=py38hfc09fa9_1
-  - readline=8.1.2=h0f457ee_0
-  - rtree=0.9.4=py38h02d302b_2
-  - setuptools=65.6.3=pyhd8ed1ab_0
-  - six=1.16.0=pyh6c4a22f_0
-  - snappy=1.1.9=hbd366e4_2
-  - sqlite=3.40.0=h4ff8645_0
-  - stack_data=0.6.2=pyhd8ed1ab_0
-  - tk=8.6.12=h27826a3_0
-  - tornado=6.2=py38h0a891b7_1
-  - traitlets=5.8.0=pyhd8ed1ab_0
-  - wcwidth=0.2.5=pyh9f0ad1d_2
-  - wheel=0.38.4=pyhd8ed1ab_0
-  - xz=5.2.6=h166bdaf_0
-  - zeromq=4.3.4=h9c3ff4c_1
-  - zlib=1.2.13=h166bdaf_4
-  - zstd=1.5.2=h6239696_4
+  - _ipython_minor_entry_point=8.7.0
+  - _libgcc_mutex=0.1
+  - _openmp_mutex=4.5
+  - asttokens=2.2.1
+  - backcall=0.2.0
+  - backports=1.0
+  - backports.functools_lru_cache=1.6.4
+  - blosc=1.21.3
+  - bzip2=1.0.8
+  - ca-certificates=2022.12.7
+  - comm=0.1.2
+  - debugpy=1.6.4
+  - decorator=5.1.1
+  - entrypoints=0.4
+  - executing=1.2.0
+  - geos=3.8.0
+  - hdf5=1.10.4
+  - ipykernel=6.19.4
+  - ipython=8.7.0
+  - jedi=0.18.2
+  - jupyter_client=7.4.8
+  - jupyter_core=5.1.0
+  - ld_impl_linux-64=2.39
+  - libblas=3.9.0
+  - libcblas=3.9.0
+  - libffi=3.3
+  - libgcc-ng=12.2.0
+  - libgfortran-ng=7.5.0
+  - libgfortran4=7.5.0
+  - libgomp=12.2.0
+  - liblapack=3.9.0
+  - libopenblas=0.3.12
+  - libsodium=1.0.18
+  - libspatialindex=1.9.3
+  - libsqlite=3.40.0
+  - libstdcxx-ng=12.2.0
+  - libzlib=1.2.13
+  - lz4-c=1.9.3
+  - lzo=2.10
+  - matplotlib-inline=0.1.6
+  - mock=4.0.3
+  - ncurses=6.3
+  - nest-asyncio=1.5.6
+  - nomkl=1.0
+  - numexpr=2.8.3
+  - openssl=1.1.1s
+  - packaging=22.0
+  - parso=0.8.3
+  - pexpect=4.8.0
+  - pickleshare=0.7.5
+  - pip=22.3.1
+  - platformdirs=2.6.0
+  - prompt-toolkit=3.0.36
+  - psutil=5.9.4
+  - ptyprocess=0.7.0
+  - pure_eval=0.2.2
+  - pygments=2.13.0
+  - pytables=3.6.1
+  - python=3.8.13
+  - python-dateutil=2.8.2
+  - python_abi=3.8
+  - pyzmq=24.0.1
+  - readline=8.1.2
+  - rtree=0.9.4
+  - setuptools=65.6.3
+  - six=1.16.0
+  - snappy=1.1.9
+  - sqlite=3.40.0
+  - stack_data=0.6.2
+  - tk=8.6.12
+  - tornado=6.2
+  - traitlets=5.8.0
+  - wcwidth=0.2.5
+  - wheel=0.38.4
+  - xz=5.2.6
+  - zeromq=4.3.4
+  - zlib=1.2.13
+  - zstd=1.5.2
   - pip:
       - alabaster==0.7.12
       - appdirs==1.4.4
@@ -132,7 +131,6 @@ dependencies:
       - llvmlite==0.39.1
       - markupsafe==2.1.1
       - matplotlib==3.3.0
-      - merlin==2.2.6
       - munch==2.5.0
       - natsort==8.2.0
       - nbformat==5.7.1
@@ -193,7 +191,5 @@ dependencies:
       - typing-extensions==4.4.0
       - urllib3==1.26.13
       - wrapt==1.14.1
-      - xlrd==2.0.1
       - xmltodict==0.13.0
       - zipp==3.11.0
-prefix: /opt/anaconda3/envs/merlin_3.8
