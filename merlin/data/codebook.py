@@ -9,7 +9,7 @@ import merlin
 
 
 def _parse_barcode_from_string(inputString):
-    return np.array([int(x) for x in inputString if x is not ' '])
+    return np.array([int(x) for x in inputString if x != ' '])
 
 
 class Codebook(object):
