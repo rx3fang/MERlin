@@ -18,11 +18,15 @@ class Warp(analysistask.ParallelAnalysisTask):
 
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
-
+        
+        if 'highpass_sigma' not in self.parameters:
+            self.parameters['highpass_sigma'] = 3
         if 'write_fiducial_images' not in self.parameters:
             self.parameters['write_fiducial_images'] = False
         if 'write_aligned_images' not in self.parameters:
             self.parameters['write_aligned_images'] = False
+        if 'ref_fragment_index' not in self.parameters:
+            self.parameters['ref_index'] = 0
 
         self.writeAlignedFiducialImages = self.parameters[
                 'write_fiducial_images']
@@ -169,9 +173,6 @@ class FiducialCorrelationWarp(Warp):
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
 
-        if 'highpass_sigma' not in self.parameters:
-            self.parameters['highpass_sigma'] = 3
-
     def fragment_count(self):
         return len(self.dataSet.get_fovs())
 
@@ -196,7 +197,9 @@ class FiducialCorrelationWarp(Warp):
         # TODO - this can be more efficient since some images should
         # use the same alignment if they are from the same imaging round
         fixedImage = self._filter(
-            self.dataSet.get_fiducial_image(0, fragmentIndex))
+            self.dataSet.get_fiducial_image(
+                self.parameters['ref_index'], 
+                fragmentIndex))
         offsets = [feature.register_translation(
             fixedImage,
             self._filter(self.dataSet.get_fiducial_image(x, fragmentIndex)),
