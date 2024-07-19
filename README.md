@@ -4,7 +4,7 @@ git clone -b 3D-MERFISH https://github.com/rx3fang/MERlin.git
 conda env create -f MERlin/merlin_env.yml    
 conda activate merlin_env  
 pip install -e ./MERlin
-./merlin
+merlin -h
 
 MERlin - the MERFISH decoding pipeline
 usage: merlin [-h] [--profile] [--generate-only] [--configure] [-w ANALYSIS_DIR_NAME] [-a ANALYSIS_PARAMETERS] [-o DATA_ORGANIZATION] [-c CODEBOOK [CODEBOOK ...]]
