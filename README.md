@@ -1,5 +1,7 @@
+
 # Install
 ```bash
+mkdir -p $HOME/Github && cd $HOME/Github
 git clone -b 3D-MERFISH https://github.com/rx3fang/MERlin.git  
 conda env create -f MERlin/merlin_env.yml    
 conda activate merlin_env  
@@ -57,4 +59,53 @@ optional arguments:
                         the name of the snakemake parameters file
   --no_report NO_REPORT
                         flag indicating that the snakemake stats should not be shared to improve MERlin
+```
+# Run MERlin on a local Linux server
+```bash
+# add the follow parameters to the merlin enviroment
+echo "DATA_HOME=/home/r3fang/disk/Fang2/RawData/Fang_eLife_2023
+ANALYSIS_HOME=/home/r3fang/disk/r3fang/project/merlin_analysis
+PARAMETERS_HOME=$HOME/Github/MERlin/merlin_paramters" \
+> $HOME/.merlinenv
+
+# define data set variables
+cd $HOME
+DATA_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
+ANALYSIS_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
+CORE_COUNT=5
+
+merlin \
+--analysis-parameters merlin_3D_decode.json \
+--microscope-parameters MERFISHX_disk_40X.json \
+--data-organization dataorganization3D.csv \
+--codebook M1_codebook_250.csv \
+--positions tiled_positions_corrected.txt \
+--core-count $CORE_COUNT \
+--analysis-dir-name $ANALYSIS_DIR_NAME \
+$DATA_DIR_NAME
+```
+
+# Run MERlin on SLURM server (google cloud)
+```bash
+# add the follow parameters to the merlin enviroment
+echo "DATA_HOME=gc://r3fang_east4/merfish_raw_data/MERFISHX
+ANALYSIS_HOME=/home/r3fang_g_harvard_edu/merlin_analysis
+PARAMETERS_HOME=/home/r3fang_g_harvard_edu/Github/MERlin/merlin_paramters" \
+> ~/.merlinenv
+
+# define data set variables
+cd $HOME
+DATA_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
+ANALYSIS_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
+
+mkdir -p ~/merlin_jobs/
+merlin \
+--analysis-parameters merlin_3D_decode.json \
+--microscope-parameters MERFISHX_disk_40X.json \
+--data-organization dataorganization3D.csv \
+--codebook M1_codebook_250.csv \
+--positions tiled_positions_corrected.txt \
+--snakemake-parameters snakemake_decode_long.json \
+--analysis-dir-name $ANALYSIS_DIR_NAME \
+$DATA_DIR_NAME
 ```

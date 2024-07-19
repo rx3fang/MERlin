@@ -1,0 +1,7 @@
+{
+    "cluster": "sbatch --mem={cluster.mem} -A {cluster.account} -p {cluster.partition} -n {cluster.n}  -t {cluster.time} -o {cluster.out} -e {cluster.err} --exclude={cluster.exclude} ",
+    "cluster_config": "$HOME/Github/MERlin/merlin_paramters/snakemake/snakemake_decode_long.json",
+    "nodes": 1000,
+    "latency_wait": 120,
+    "restart_times": 3
+}

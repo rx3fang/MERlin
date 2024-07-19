@@ -1,0 +1,43 @@
+# run MERlin on local Ubuntu sever without Slurm Workload Manager
+# add below parameters to ~/.merlinenv
+echo "DATA_HOME=/home/r3fang/disk/Fang2/RawData/Fang_eLife_2023
+ANALYSIS_HOME=/home/r3fang/disk/r3fang/project/merlin_analysis
+PARAMETERS_HOME=/home/r3fang/disk/r3fang/Github/MERlin/merlin_paramters " \
+> ~/.merlinenv
+
+# add the following variables
+DATA_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
+ANALYSIS_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
+
+merlin \
+--analysis-parameters merlin_3D_decode.json \
+--microscope-parameters MERFISHX_disk_40X.json \
+--data-organization dataorganization3D.csv \
+--codebook M1_codebook_250.csv \
+--positions tiled_positions_corrected.txt \
+--core-count $CORE_COUNT \
+--analysis-dir-name $ANALYSIS_DIR_NAME \
+$DATA_DIR_NAME
+
+# run MERlin on google cloud with Slurm Workload Manager
+# add below parameters to ~/.merlinenv
+echo "DATA_HOME=gc://r3fang_east4/merfish_raw_data/MERFISHX
+ANALYSIS_HOME=/home/r3fang_g_harvard_edu/merlin_analysis
+PARAMETERS_HOME=/home/r3fang_g_harvard_edu/Github/MERlin/merlin_paramters " \
+> ~/.merlinenv
+
+DATA_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
+ANALYSIS_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
+
+mkdir ~/merlin_jobs/
+merlin \
+--analysis-parameters merlin_3D_decode.json \
+--microscope-parameters MERFISHX_disk_40X.json \
+--data-organization dataorganization3D.csv \
+--codebook M1_codebook_250.csv \
+--positions tiled_positions_corrected.txt \
+--analysis-dir-name $ANALYSIS_DIR_NAME \
+--snakemake-parameters snakemake_decode_long.json \
+$DATA_DIR_NAME
+
+
