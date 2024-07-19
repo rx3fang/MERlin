@@ -1,11 +1,9 @@
-
-
 # Install
 ```bash
 mkdir -p $HOME/Github && cd $HOME/Github
-git clone -b 3D-MERFISH https://github.com/rx3fang/MERlin.git  
-conda env create -f MERlin/merlin_env.yml    
-conda activate merlin_env  
+git clone -b 3D-MERFISH https://github.com/rx3fang/MERlin.git
+conda env create -f MERlin/merlin_env.yml
+conda activate merlin_env
 pip install -e ./MERlin
 merlin -h
 
@@ -75,7 +73,7 @@ DATA_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
 ANALYSIS_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
 CORE_COUNT=5
 
-# change model_path to the pre-trained cellpose model in CellPoseSegment3D 
+# change model_path to the pre-trained cellpose model in CellPoseSegment3D
 # module in the merlin_3D_decode.json file
 # "model_path": "path/MERlin/merlin_paramters/cellpose_models/CP_20221125__disk_xy05um_z1um_DAPI_polyT",
 
@@ -103,9 +101,12 @@ cd $HOME
 DATA_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
 ANALYSIS_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
 
-# change model_path to the pre-trained cellpose model in CellPoseSegment3D 
-# module in the merlin_3D_decode.json file
+# change model_path in Github/MERlin/merlin_paramters/analysis/merlin_3D_decode.json
+# to the pre-trained cellpose model in CellPoseSegment3D
 # "model_path": "path/MERlin/merlin_paramters/cellpose_models/CP_20221125__disk_xy05um_z1um_DAPI_polyT",
+
+# change cluster_config in Github/MERlin/merlin_paramters/snakemake/snakemake_decode_long.json
+# "cluster_config": "path/Github/MERlin/merlin_paramters/snakemake/clusterconfig_decode_long.json",
 
 mkdir -p ~/merlin_jobs/
 merlin \
