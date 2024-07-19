@@ -259,7 +259,7 @@
         "parameters": {
 			"warp_task": "FiducialCorrelationWarp",
 			"global_align_task": "SimpleGlobalAlignment",
-			"model_path": "$HOME/Github/MERlin/merlin_paramters/cellpose_models/CP_20221125__disk_xy05um_z1um_DAPI_polyT",
+			"model_path": "/home/r3fang/Github/MERlin/merlin_paramters/cellpose_models/CP_20221125__disk_xy05um_z1um_DAPI_polyT",
 			"channel_names": ["DAPI", "polyT"],
 			"channels": [2,1],
 			"write_mask_images": false,

@@ -1,4 +1,5 @@
 
+
 # Install
 ```bash
 mkdir -p $HOME/Github && cd $HOME/Github
@@ -74,6 +75,10 @@ DATA_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
 ANALYSIS_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
 CORE_COUNT=5
 
+# change model_path to the pre-trained cellpose model in CellPoseSegment3D 
+# module in the merlin_3D_decode.json file
+# "model_path": "path/MERlin/merlin_paramters/cellpose_models/CP_20221125__disk_xy05um_z1um_DAPI_polyT",
+
 merlin \
 --analysis-parameters merlin_3D_decode.json \
 --microscope-parameters MERFISHX_disk_40X.json \
@@ -97,6 +102,10 @@ PARAMETERS_HOME=/home/r3fang_g_harvard_edu/Github/MERlin/merlin_paramters" \
 cd $HOME
 DATA_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
 ANALYSIS_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
+
+# change model_path to the pre-trained cellpose model in CellPoseSegment3D 
+# module in the merlin_3D_decode.json file
+# "model_path": "path/MERlin/merlin_paramters/cellpose_models/CP_20221125__disk_xy05um_z1um_DAPI_polyT",
 
 mkdir -p ~/merlin_jobs/
 merlin \
