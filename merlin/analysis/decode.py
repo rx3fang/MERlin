@@ -13,6 +13,7 @@ from merlin.util import decoding
 from merlin.util import barcodedb
 from merlin.data.codebook import Codebook
 from merlin.util import barcodefilters
+from merlin.util import imagefilters
 
 class BarcodeSavingParallelAnalysisTask(analysistask.ParallelAnalysisTask):
 
@@ -169,6 +170,9 @@ class Decode(BarcodeSavingParallelAnalysisTask):
             processedImages = np.array([ preprocessTask.get_processed_image_set(
                fragmentIndex, zIndex, chromaticCorrector) \
                    for zIndex in range(zPositionCount) ])
+            processedImages = np.array([ 
+                imagefilters.low_pass_filter(x, self.parameters['lowpass_sigma']) \
+                for x in processedImages ])
             self._save_processed_images(
                 fragmentIndex, zPositionCount, processedImages)
             del processedImages

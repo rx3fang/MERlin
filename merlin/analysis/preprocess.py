@@ -54,7 +54,11 @@ class DeconvolutionPreprocess(Preprocess):
             self.parameters['codebook_index'] = 0
         if 'save_pixel_histogram' not in self.parameters:
             self.parameters['save_pixel_histogram'] = False
-
+        if 'lowpass_sigma' not in self.parameters:
+            self.parameters['lowpass_sigma'] = 1.0
+        if 'write_processed_images' not in self.parameters:
+            self.parameters['write_processed_images'] = False
+        
         self._highPassSigma = self.parameters['highpass_sigma']
         self._deconSigma = self.parameters['decon_sigma']
         self._deconIterations = self.parameters['decon_iterations']
@@ -92,7 +96,7 @@ class DeconvolutionPreprocess(Preprocess):
                 fov, self.dataSet.get_data_organization()
                     .get_data_channel_for_bit(b), zIndex, chromaticCorrector)
                     for b in self.get_codebook().get_bit_names()])
-
+    
     def get_processed_image(
             self, fov: int, dataChannel: int, zIndex: int,
             chromaticCorrector: aberration.ChromaticCorrector = None
@@ -143,10 +147,39 @@ class DeconvolutionPreprocess(Preprocess):
                                                 highPassFilterSize,
                                                 _highPassSigma)
         return hpImage.astype(np.float)
-
+    
+    def _save_processed_images(self, fov: int, zPositionCount: int,
+                             processedImages: np.ndarray) -> None:
+            imageDescription = self.dataSet.analysis_tiff_description(
+                zPositionCount, processedImages.shape[1])
+            with self.dataSet.writer_for_analysis_images(
+                    self, 'processed', fov) as outputTif:
+                for i in range(zPositionCount):
+                    outputTif.save(processedImages[i].astype(np.uint16),
+                                   photometric='MINISBLACK',
+                                   metadata=imageDescription)
+    
     def _run_analysis(self, fragmentIndex):
-        pass 
+        if self.parameters['write_processed_images']:
+            zPositionCount = len(self.dataSet.get_z_positions())
 
+            processedImages = np.array([ self.get_processed_image_set(
+               fragmentIndex, zIndex, None) \
+                   for zIndex in range(zPositionCount) ])
+            
+            for i in range(processedImages.shape[0]): # z-positions
+                for j in range(processedImages.shape[1]): # Channels
+                    processedImages[i,j,:,:] = \
+                        imagefilters.low_pass_filter(
+                            processedImages[i,j,:,:],
+                            self.parameters['lowpass_sigma'])
+            
+            self._save_processed_images(
+                fragmentIndex, zPositionCount, processedImages)
+            del processedImages
+        else:
+            pass
+            
 class ImageEnhanceProcess(Preprocess):
     
     def __init__(self, dataSet, parameters=None, analysisName=None):
@@ -166,6 +199,8 @@ class ImageEnhanceProcess(Preprocess):
             self.parameters['codebook_index'] = 0
         if 'save_pixel_histogram' not in self.parameters:
             self.parameters['save_pixel_histogram'] = False
+        if 'lowpass_sigma' not in self.parameters:
+            self.parameters['lowpass_sigma'] = 1.0
 
         self._highPassSigma = self.parameters['highpass_sigma']
         self._deconSigma = self.parameters['decon_sigma']

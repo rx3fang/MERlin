@@ -456,7 +456,11 @@ class Interpolate3D(analysistask.ParallelAnalysisTask):
             for dataChannel in dataChannels:
                 imageSet = self.get_interpolated_feature_set(
                         fragmentIndex, dataChannel) 
-                
+                # disable interpolation and only allow 
+                # retrieve of feature images
+                #imageSet = self.get_feature_image_set(
+                #        fragmentIndex, dataChannel) 
+
                 fimage = self.dataSet.get_feature_fiducial_image(
                     dataChannel, fragmentIndex)
                 
