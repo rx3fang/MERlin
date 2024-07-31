@@ -1,6 +1,9 @@
 import os
 import cv2
 import numpy as np
+from typing import Dict
+from typing import List
+from skimage import transform
 
 from merlin.core import analysistask
 from merlin.util import deconvolve
@@ -54,10 +57,6 @@ class DeconvolutionPreprocess(Preprocess):
             self.parameters['codebook_index'] = 0
         if 'save_pixel_histogram' not in self.parameters:
             self.parameters['save_pixel_histogram'] = False
-        if 'lowpass_sigma' not in self.parameters:
-            self.parameters['lowpass_sigma'] = 1.0
-        if 'write_processed_images' not in self.parameters:
-            self.parameters['write_processed_images'] = False
         
         self._highPassSigma = self.parameters['highpass_sigma']
         self._deconSigma = self.parameters['decon_sigma']
@@ -148,40 +147,17 @@ class DeconvolutionPreprocess(Preprocess):
                                                 _highPassSigma)
         return hpImage.astype(np.float)
     
-    def _save_processed_images(self, fov: int, zPositionCount: int,
-                             processedImages: np.ndarray) -> None:
-            imageDescription = self.dataSet.analysis_tiff_description(
-                zPositionCount, processedImages.shape[1])
-            with self.dataSet.writer_for_analysis_images(
-                    self, 'processed', fov) as outputTif:
-                for i in range(zPositionCount):
-                    outputTif.save(processedImages[i].astype(np.uint16),
-                                   photometric='MINISBLACK',
-                                   metadata=imageDescription)
-    
     def _run_analysis(self, fragmentIndex):
-        if self.parameters['write_processed_images']:
-            zPositionCount = len(self.dataSet.get_z_positions())
-
-            processedImages = np.array([ self.get_processed_image_set(
-               fragmentIndex, zIndex, None) \
-                   for zIndex in range(zPositionCount) ])
-            
-            for i in range(processedImages.shape[0]): # z-positions
-                for j in range(processedImages.shape[1]): # Channels
-                    processedImages[i,j,:,:] = \
-                        imagefilters.low_pass_filter(
-                            processedImages[i,j,:,:],
-                            self.parameters['lowpass_sigma'])
-            
-            self._save_processed_images(
-                fragmentIndex, zPositionCount, processedImages)
-            del processedImages
-        else:
             pass
-            
+
 class ImageEnhanceProcess(Preprocess):
     
+    """
+    Image enhancement by CSB deep learning.
+        
+    Rongxin Fang
+    7/30/2024
+    """
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
         
@@ -310,3 +286,146 @@ class ImageEnhanceProcess(Preprocess):
     def _run_analysis(self, fragmentIndex):
         pass        
     
+
+class WriteDownProcessedImages(analysistask.ParallelAnalysisTask):
+
+    """
+    Write down the preprocessed images prior to barcode calling.
+        lowpass_sigma - low pass filter to smooth the images.
+        feature_channels - the channel names for immnostaining
+            or other cellular features such as DAPI, polyT
+        warp_task - the warp task that aligns images from 
+            different round.
+        preprocess_task - preprocessing task.
+        Optional: it is also possible to provide the optimization task
+            optimize_task. if this parameter is not given,
+            this task will ignore optimization task. This
+            provides an option.
+        
+    Rongxin Fang
+    7/30/2024
+    """
+    
+    def __init__(self, dataSet, parameters=None, analysisName=None):
+        super().__init__(dataSet, parameters, analysisName)
+
+        if 'lowpass_sigma' not in self.parameters:
+            self.parameters['lowpass_sigma'] = 1.0
+        if 'feature_channels' not in self.parameters:
+            self.parameters['feature_channels'] = None
+        self.warpTask = self.dataSet.load_analysis_task(
+            self.parameters['warp_task'])
+        self.preprocessTask = self.dataSet.load_analysis_task(
+            self.parameters['preprocess_task'])
+
+    def fragment_count(self):
+        return len(self.dataSet.get_fovs())
+
+    def get_estimated_memory(self):
+        return 2048
+
+    def get_estimated_time(self):
+        return 5
+        
+    def get_dependencies(self):
+        return [self.parameters['warp_task'],
+                self.parameters['preprocess_task']]
+    
+    def get_codebook(self) -> codebook.Codebook:
+        return self.preprocessTask.get_codebook()
+    
+    def _get_used_colors(self) -> List[str]:
+        dataOrganization = self.dataSet.get_data_organization()
+        codebook = self.get_codebook()
+        return sorted({dataOrganization.get_data_channel_color(
+            dataOrganization.get_data_channel_for_bit(x))
+            for x in codebook.get_bit_names()})
+    
+    def _get_initial_chromatic_corrector(self):
+        usedColors = self._get_used_colors()
+        return {u: {v: transform.SimilarityTransform()
+            for v in usedColors if v >= u} for u in usedColors}
+    
+    def _get_reference_color(self):
+        return min(self._get_used_colors())
+    
+    def get_feature_image_set(
+            self, fov, zIndex, featureChannels,
+            chromaticCorrector: aberration.ChromaticCorrector = None
+    ) -> np.ndarray:
+        return np.array([self.warpTask.get_aligned_image(
+            fov, self.dataSet.get_data_organization()
+                .get_data_channel_for_bit(b), zIndex, chromaticCorrector)
+                for b in featureChannels ])
+
+    def _save_processed_images(self, fov: int, zPositionCount: int,
+                             processedImages: np.ndarray) -> None:
+            imageDescription = self.dataSet.analysis_tiff_description(
+                zPositionCount, processedImages.shape[1])
+            with self.dataSet.writer_for_analysis_images(
+                    self, 'processed_', fov) as outputTif:
+                for i in range(zPositionCount):
+                    outputTif.save(processedImages[i].astype(np.uint16),
+                                   photometric='MINISBLACK',
+                                   metadata=imageDescription)
+
+    def _save_feature_images(self, fov: int, zPositionCount: int,
+                             featureImages: np.ndarray) -> None:
+            imageDescription = self.dataSet.analysis_tiff_description(
+                zPositionCount, featureImages.shape[1])
+            with self.dataSet.writer_for_analysis_images(
+                    self, 'feature_', fov) as outputTif:
+                for i in range(zPositionCount):
+                    outputTif.save(featureImages[i].astype(np.uint16),
+                                   photometric='MINISBLACK',
+                                   metadata=imageDescription)
+
+    def _run_analysis(self, fragmentIndex):
+
+        if 'optimize_task' in self.parameters:
+            optimizeTask = self.dataSet.load_analysis_task(
+            		self.parameters['optimize_task'])
+            scaleFactors = optimizeTask.get_scale_factors() 
+            backgrounds = optimizeTask.get_backgrounds()
+            chromaticCorrector = optimizeTask.get_chromatic_corrector()
+        else:
+            codebook = self.preprocessTask.get_codebook()
+            scaleFactors = np.ones(self.get_codebook().get_bit_count())
+            backgrounds = np.zeros(self.get_codebook().get_bit_count())
+            chromaticCorrector = aberration.RigidChromaticCorrector(
+                self._get_initial_chromatic_corrector(), 
+                self._get_reference_color())
+
+        zPositionCount = len(self.dataSet.get_z_positions())
+        
+        # write down feature images if feature_channels is not None
+        if self.parameters['feature_channels'] is not None:
+            featureImages = np.array([ 
+                self.get_feature_image_set(
+                    fragmentIndex, zIndex, 
+                    self.parameters['feature_channels'], 
+                    chromaticCorrector) \
+                for zIndex in range(zPositionCount) ])
+        
+            self._save_feature_images(
+                fragmentIndex, zPositionCount, featureImages)
+        
+        processedImages = np.array([ self.preprocessTask.get_processed_image_set(
+                    fragmentIndex, zIndex, chromaticCorrector) \
+                        for zIndex in range(zPositionCount) ])
+        
+        # write this part more elegently
+        for i in range(processedImages.shape[0]): # z-positions
+            for j in range(processedImages.shape[1]): # Channels
+                processedImages[i,j,:,:] = \
+                    imagefilters.low_pass_filter(
+                        processedImages[i,j,:,:],
+                        self.parameters['lowpass_sigma'])
+
+        # TODO: enable saving the file as dax file
+        self._save_processed_images(
+            fragmentIndex, zPositionCount, processedImages)
+            
+        
+        
+

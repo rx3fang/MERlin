@@ -28,7 +28,6 @@ class Warp(analysistask.ParallelAnalysisTask):
             self.parameters['write_aligned_images'] = False
         if 'ref_index' not in self.parameters:
             self.parameters['ref_index'] = 0
-
         self.writeAlignedFiducialImages = self.parameters[
                 'write_fiducial_images']
 
