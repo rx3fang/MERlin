@@ -293,15 +293,18 @@ class WriteDownProcessedImages(analysistask.ParallelAnalysisTask):
     Write down the preprocessed images prior to barcode calling.
         lowpass_sigma - low pass filter to smooth the images 
             after deconvolution.
-        feature_channels - the channel names for immmnostaining
-            or other cellular features such as DAPI, polyT.
-            feature_channels can be empty.
         warp_task - the warp task that aligns images from 
             different round.
         preprocess_task - preprocessing task.
-        Optional: it is also possible to provide the optimization task
-            optimize_task. if this parameter is not given,
-            this task will be ignored. 
+        
+        Optional: 
+            feature_channels - the channel names for immmnostaining
+                or other cellular features such as DAPI, polyT.
+                feature_channels can be empty.
+            optimize_task - it is also possible to provide 
+                the optimization task. if this parameter is given, 
+                the images will also be corrected for its chromatic
+                abberation, normalized for intensity difference etc. 
         
     Rongxin Fang
     7/31/2024
@@ -379,11 +382,12 @@ class WriteDownProcessedImages(analysistask.ParallelAnalysisTask):
                 self._get_reference_color())
 
         zPositionCount = len(self.dataSet.get_z_positions())
-        channelCount = len(self.dataSet.get_z_positions()) + \
+        channelCount = self.get_codebook().get_bit_count() + \
                         len(self.parameters['feature_channels'])
 
         # avoids creating a huge numpy matrix such as 100 x 22 x 2048 x 2048
         # by proecessing every z indepedently. This is mostly for 3D-MERFISH
+        # when each fov contains 100s of z slices
         imageDescription = self.dataSet.analysis_tiff_description(
                 zPositionCount, channelCount)
         
@@ -391,9 +395,11 @@ class WriteDownProcessedImages(analysistask.ParallelAnalysisTask):
                 self, 'image_', fragmentIndex) as outputTif:
             
             for zIndex in range(zPositionCount):
+                # chromaticCorrector is None if optimization task is not given
                 imageSet_preproc = self.preprocessTask.get_processed_image_set(
                     fragmentIndex, zIndex, chromaticCorrector)
 
+                # apply low pass filter
                 imageSet_preproc = np.array([ 
                     imagefilters.low_pass_filter(
                         imageSet_preproc[i,:,:],
@@ -401,16 +407,17 @@ class WriteDownProcessedImages(analysistask.ParallelAnalysisTask):
                             for i in range(imageSet_preproc.shape[0]) ]
                             ).astype(np.uint16)
 
-                # return None if feature_channels is []
+                # return None if feature_channels is [] 
                 imageSet_feature = self.get_feature_image_set(
                     fragmentIndex, zIndex, 
                     self.parameters['feature_channels'], 
                     chromaticCorrector)
                 
+                # combine feature set and processed image set
                 if imageSet_feature is not None:
                     imageSet_feature = imageSet_feature.astype(np.uint16)
                     imageSet = np.concatenate([
-                        imageSet_feature, imageSet_preproc], axis=0)
+                        imageSet_preproc, imageSet_feature], axis=0)
                 else:
                     imageSet = imageSet_preproc
                 
