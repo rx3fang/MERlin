@@ -9,7 +9,9 @@ from merlin.core import analysistask
 from merlin.util import deconvolve
 from merlin.util import aberration
 from merlin.util import imagefilters
+from merlin.util import imagewriter
 from merlin.data import codebook
+
 
 class Preprocess(analysistask.ParallelAnalysisTask):
 
@@ -39,7 +41,35 @@ class Preprocess(analysistask.ParallelAnalysisTask):
             histogram, 'pixel_histogram', self.analysisName, fov, 'histograms')
 
 class DeconvolutionPreprocess(Preprocess):
+    
+    """
+    Perform deconvolution to MERFISH images.
+    
+        Parameters:
+        -----------
+        highpass_sigma : float
+            High pass filter sigma to remove cellular background
+        
+        decon_sigma : int
+            Deconvolution sigma.
+        
+        decon_filter_size : float
+            Deconvolution filter size.
 
+        decon_iterations : float
+            Deconvolution iteration.
+
+        codebook_index : int
+            The codebook to be used. Sometime, we decode two codebooks at the same time,
+            this parameter determines which codebook to be used.
+        
+        save_pixel_histogram: bool
+            whether to save the histogram of the pixel intenisty. 
+    
+    Rongxin Fang
+    7/31/2024
+    """
+    
     def __init__(self, dataSet, parameters=None, analysisName=None):
         super().__init__(dataSet, parameters, analysisName)
 
@@ -286,26 +316,31 @@ class ImageEnhanceProcess(Preprocess):
     def _run_analysis(self, fragmentIndex):
         pass        
     
-
 class WriteDownProcessedImages(analysistask.ParallelAnalysisTask):
 
     """
-    Write down the preprocessed images prior to barcode calling.
-        lowpass_sigma - low pass filter to smooth the images 
-            after deconvolution.
-        warp_task - the warp task that aligns images from 
-            different round.
-        preprocess_task - preprocessing task.
+    Writes down the preprocessed images prior to barcode calling.
+    
+    Parameters:
+    -----------
+    lowpass_sigma : float
+        Low pass filter to smooth the images after deconvolution.
         
-        Optional: 
-            feature_channels - the channel names for immmnostaining
-                or other cellular features such as DAPI, polyT.
-                feature_channels can be empty.
-            optimize_task - it is also possible to provide 
-                the optimization task. if this parameter is given, 
-                the images will also be corrected for its chromatic
-                abberation, normalized for intensity difference etc. 
+    warp_task : str
+        The warp task that aligns images from different rounds.
         
+    preprocess_task : str
+        The preprocessing task.
+        
+    Optional Parameters:
+    ---------------------
+    feature_channels : list of str, optional
+        The channel names for immunostaining or other cellular features such as DAPI, polyT.
+        This can be left empty.
+        
+    optimize_task : str, optional
+        The optimization task. If provided, the images will also be corrected for chromatic aberration, normalized for intensity differences, etc.
+    
     Rongxin Fang
     7/31/2024
     """
@@ -317,6 +352,8 @@ class WriteDownProcessedImages(analysistask.ParallelAnalysisTask):
             self.parameters['lowpass_sigma'] = 1.0
         if 'feature_channels' not in self.parameters:
             self.parameters['feature_channels'] = []
+        if 'file_type' not in self.parameters:
+            self.parameters['file_type'] = 'tif'
         self.warpTask = self.dataSet.load_analysis_task(
             self.parameters['warp_task'])
         self.preprocessTask = self.dataSet.load_analysis_task(
@@ -363,7 +400,7 @@ class WriteDownProcessedImages(analysistask.ParallelAnalysisTask):
             fov, self.dataSet.get_data_organization()
                 .get_data_channel_for_bit(b), zIndex, chromaticCorrector)
                 for b in featureChannels ])
-
+    
     def _run_analysis(self, fragmentIndex):
 
         # if optimization task is given, load scalefactor, chromatic abberation
@@ -388,40 +425,49 @@ class WriteDownProcessedImages(analysistask.ParallelAnalysisTask):
         # avoids creating a huge numpy matrix such as 100 x 22 x 2048 x 2048
         # by proecessing every z indepedently. This is mostly for 3D-MERFISH
         # when each fov contains 100s of z slices
-        imageDescription = self.dataSet.analysis_tiff_description(
-                zPositionCount, channelCount)
-        
-        with self.dataSet.writer_for_analysis_images(
-                self, 'image_', fragmentIndex) as outputTif:
+        if self.parameters['file_type'] == "dax":
+            outputTif = imagewriter.DaxWriter(
+                self.dataSet._analysis_image_name(
+                    self, "image_", fragmentIndex).replace('tif', 'dax')
+                )
+        else:
+            outputTif = imagewriter.TiffWriter(
+                self.dataSet._analysis_image_name(
+                    self, "image_", fragmentIndex)
+                )
             
-            for zIndex in range(zPositionCount):
-                # chromaticCorrector is None if optimization task is not given
-                imageSet_preproc = self.preprocessTask.get_processed_image_set(
-                    fragmentIndex, zIndex, chromaticCorrector)
+        
+        for zIndex in range(zPositionCount):
+            # chromaticCorrector is None if optimization task is not given
+            imageSet_preproc = self.preprocessTask.get_processed_image_set(
+                fragmentIndex, zIndex, chromaticCorrector)
 
-                # apply low pass filter
-                imageSet_preproc = np.array([ 
-                    imagefilters.low_pass_filter(
-                        imageSet_preproc[i,:,:],
-                        self.parameters['lowpass_sigma']) \
-                            for i in range(imageSet_preproc.shape[0]) ]
-                            ).astype(np.uint16)
+            # apply low pass filter
+            imageSet_preproc = np.array([ 
+                imagefilters.low_pass_filter(
+                    imageSet_preproc[i,:,:],
+                    self.parameters['lowpass_sigma']) \
+                        for i in range(imageSet_preproc.shape[0]) ]
+                        ).astype(np.uint16)
 
-                # return None if feature_channels is [] 
-                imageSet_feature = self.get_feature_image_set(
-                    fragmentIndex, zIndex, 
-                    self.parameters['feature_channels'], 
-                    chromaticCorrector)
-                
-                # combine feature set and processed image set
-                if imageSet_feature is not None:
-                    imageSet_feature = imageSet_feature.astype(np.uint16)
-                    imageSet = np.concatenate([
-                        imageSet_preproc, imageSet_feature], axis=0)
-                else:
-                    imageSet = imageSet_preproc
-                
-                for i in range(imageSet.shape[0]):
-                    outputTif.save(imageSet[i],
-                        photometric='MINISBLACK',
-                        metadata=imageDescription)
+            # return None if feature_channels is empty - [] 
+            imageSet_feature = self.get_feature_image_set(
+                fragmentIndex, zIndex, 
+                self.parameters['feature_channels'], 
+                chromaticCorrector)
+            
+            # combine feature set and processed image set
+            if imageSet_feature is not None:
+                imageSet_feature = imageSet_feature.astype(np.uint16)
+                imageSet = np.concatenate([
+                    imageSet_preproc, imageSet_feature], axis=0)
+            else:
+                imageSet = imageSet_preproc
+            
+            for i in range(imageSet.shape[0]):
+                    outputTif.addFrame(imageSet[i])
+        
+        outputTif.close()
+
+
+        

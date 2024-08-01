@@ -40,7 +40,37 @@ class BarcodeSavingParallelAnalysisTask(analysistask.ParallelAnalysisTask):
 class Decode(BarcodeSavingParallelAnalysisTask):
 
     """
-    An analysis task that extracts barcodes from images.
+    Performs pixel-based decoding and subsequently extracts barcodes from the decoded images.
+    
+    Parameters:
+    -----------
+    crop_width : int
+        Number of pixels at the edge of each image to be cropped out to avoid edge effects.
+        
+    write_decoded_images : bool
+        Whether to write the decoded images which include three frames: decoded image, magnitude image, and min-distance image.
+        
+    minimum_area : int
+        Any putative barcodes with pixel number fewer than this will be filtered before barcode calling.
+        
+    magnitude_threshold : float
+        Pixels with magnitude less than this threshold will be filtered before barcode calling.
+        
+    distance_threshold : float
+        Pixels with minimum distance to the closest barcode in the codebook will be filtered before barcode calling.
+        
+    lowpass_sigma : float
+        Sigma value for the low pass filter. A small value (e.g. 0.5) will apply a lesser extent of smoothing to the image.
+        Recommended to use a small value to mitigate molecular overcrowding when imaging a large number of genes.
+        
+    decode_3d : bool
+        Whether decoding is performed in 3D. This is a legacy function and is not recommended due to high memory consumption.
+
+    remove_z_duplicated_barcodes : bool
+        Whether to remove duplicate barcodes between adjacent z planes.
+        
+    Rongxin Fang
+    7/31/2024
     """
 
     def __init__(self, dataSet: dataset.MERFISHDataSet,
@@ -54,7 +84,7 @@ class Decode(BarcodeSavingParallelAnalysisTask):
         if 'minimum_area' not in self.parameters:
             self.parameters['minimum_area'] = 2
         if 'magnitude_threshold' not in self.parameters:
-            self.parameters['magnitude_threshold'] = 10
+            self.parameters['magnitude_threshold'] = 1
         if 'distance_threshold' not in self.parameters:
             self.parameters['distance_threshold'] = 0.65
         if 'lowpass_sigma' not in self.parameters:
