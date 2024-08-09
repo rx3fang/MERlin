@@ -41,6 +41,7 @@ class Decode(BarcodeSavingParallelAnalysisTask):
 
     """
     Performs pixel-based decoding and subsequently extracts barcodes from the decoded images.
+    Detailed description of this function can be found here: 10.1073/pnas.1912459116
     
     Parameters:
     -----------
@@ -57,7 +58,7 @@ class Decode(BarcodeSavingParallelAnalysisTask):
         Pixels with magnitude less than this threshold will be filtered before barcode calling.
         
     distance_threshold : float
-        Pixels with minimum distance to the closest barcode in the codebook will be filtered before barcode calling.
+        Pixels with minimum distance to the closest barcode in the codebook smaller than this threshold will be filtered before barcode calling.
         
     lowpass_sigma : float
         Sigma value for the low pass filter. A small value (e.g. 0.5) will apply a lesser extent of smoothing to the image.
@@ -67,7 +68,7 @@ class Decode(BarcodeSavingParallelAnalysisTask):
         Whether decoding is performed in 3D. This is a legacy function and is not recommended due to high memory consumption.
 
     remove_z_duplicated_barcodes : bool
-        Whether to remove duplicate barcodes between adjacent z planes.
+        Whether to remove duplicate barcodes between adjacent z planes. This is a legacy function and is not recommended due to high memory/time consumption.
         
     Rongxin Fang
     7/31/2024
@@ -84,7 +85,7 @@ class Decode(BarcodeSavingParallelAnalysisTask):
         if 'minimum_area' not in self.parameters:
             self.parameters['minimum_area'] = 2
         if 'magnitude_threshold' not in self.parameters:
-            self.parameters['magnitude_threshold'] = 1
+            self.parameters['magnitude_threshold'] = 10.0
         if 'distance_threshold' not in self.parameters:
             self.parameters['distance_threshold'] = 0.65
         if 'lowpass_sigma' not in self.parameters:
@@ -158,7 +159,7 @@ class Decode(BarcodeSavingParallelAnalysisTask):
             for v in usedColors if v >= u} for u in usedColors}
 
     def _run_analysis(self, fragmentIndex):
-        """This function decodes the barcodes in a fov and saves them to the
+        """This function identifies the barcodes in a single fov and saves them to the
         barcode database.
         """
         preprocessTask = self.dataSet.load_analysis_task(
