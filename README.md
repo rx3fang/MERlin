@@ -1,3 +1,4 @@
+
 # Install
 ```bash
 mkdir -p $HOME/Github && cd $HOME/Github
@@ -61,61 +62,25 @@ optional arguments:
 ```
 # Run MERlin on a local Linux server
 ```bash
-# add the follow parameters to the merlin enviroment
-echo "DATA_HOME=/home/r3fang/disk/Fang2/RawData/Fang_eLife_2023
-ANALYSIS_HOME=/home/r3fang/disk/r3fang/project/merlin_analysis
-PARAMETERS_HOME=$HOME/Github/MERlin/merlin_paramters" \
-> $HOME/.merlinenv
-
 # define data set variables
-cd $HOME
-DATA_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
-ANALYSIS_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
+DATA_DIR_NAME=20230311-MFX.Disk.40X.WL-MB.100um-MOP/data
+ANALYSIS_DIR_NAME=20230311-MFX.Disk.40X.WL-MB.100um-MOP/merlin_analysis
+PARAMETERS_HOME=20230311-MFX.Disk.40X.WL-MB.100um-MOP/merlin_paramters
 CORE_COUNT=5
 
-# change model_path to the pre-trained cellpose model in CellPoseSegment3D
-# module in the merlin_3D_decode.json file
-# "model_path": "path/MERlin/merlin_paramters/cellpose_models/CP_20221125__disk_xy05um_z1um_DAPI_polyT",
+# in the merlin_parameters/analysis/merlin_3D_decode.json file, change model_path to the pre-trained cellpose model in CellPoseSegment3D 
+# "model_path": "20230311-MFX.Disk.40X.WL-MB.100um-MOP/merlin_paramters/cellpose_models/CP_20221125__disk_xy05um_z1um_DAPI_polyT"
 
 merlin \
+--analysis-dir-name $ANALYSIS_DIR_NAME \
+--parameters-home $PARAMETERS_HOME \
+--analysis-home $ANALYSIS_DIR_NAME \
 --analysis-parameters merlin_3D_decode.json \
 --microscope-parameters MERFISHX_disk_40X.json \
 --data-organization dataorganization3D.csv \
 --codebook M1_codebook_250.csv \
 --positions tiled_positions_corrected.txt \
 --core-count $CORE_COUNT \
---analysis-dir-name $ANALYSIS_DIR_NAME \
-$DATA_DIR_NAME
-```
-
-# Run MERlin on SLURM server (google cloud)
-```bash
-# add the follow parameters to the merlin enviroment
-echo "DATA_HOME=gc://r3fang_east4/merfish_raw_data/MERFISHX
-ANALYSIS_HOME=/home/r3fang_g_harvard_edu/merlin_analysis
-PARAMETERS_HOME=/home/r3fang_g_harvard_edu/Github/MERlin/merlin_paramters" \
-> ~/.merlinenv
-
-# define data set variables
-cd $HOME
-DATA_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
-ANALYSIS_DIR_NAME=20240716-MFX.Disk.40X.WL-MB.100um-MOP/data
-
-# change model_path in Github/MERlin/merlin_paramters/analysis/merlin_3D_decode.json
-# to the pre-trained cellpose model in CellPoseSegment3D
-# "model_path": "path/MERlin/merlin_paramters/cellpose_models/CP_20221125__disk_xy05um_z1um_DAPI_polyT",
-
-# change cluster_config in Github/MERlin/merlin_paramters/snakemake/snakemake_decode_long.json
-# "cluster_config": "path/Github/MERlin/merlin_paramters/snakemake/clusterconfig_decode_long.json",
-
-mkdir -p ~/merlin_jobs/
-merlin \
---analysis-parameters merlin_3D_decode.json \
---microscope-parameters MERFISHX_disk_40X.json \
---data-organization dataorganization3D.csv \
---codebook M1_codebook_250.csv \
---positions tiled_positions_corrected.txt \
---snakemake-parameters snakemake_decode_long.json \
 --analysis-dir-name $ANALYSIS_DIR_NAME \
 $DATA_DIR_NAME
 ```
