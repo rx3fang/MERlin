@@ -1,23 +1,31 @@
 import os
 import setuptools
 
-merfishdecoder_version = '0.2.0'
+CLASSIFIERS = [
+    "Development Status :: 4 - Beta",
+    "Natural Language :: English",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS :: MacOS X",
+    "License  :: Restricted use",
+    "Programming Language :: Python :: 3.8",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
 
 install_requires = [line.rstrip() for line in open(
     os.path.join(os.path.dirname(__file__), "requirements.txt"))]
 
 setuptools.setup(
-    name='merfishdecoder',
-    version=merfishdecoder_version,
-    description="MERFISH Decoder",
-    author='Rongxin Fang',
-    author_email='r3fang@fas.harvard.edu',
+    name="merlin",
+    version="3.0.0",
+    description="MERFISH decoding software",
+    author=[ "Rongxin Fang", "George Emanuel" ],
+    author_email="r3fang@fas.harvard.edu",
+    license="Restricted use",
     packages=setuptools.find_packages(),
-    license='LICENSE.txt',
     install_requires=install_requires,
-    keywords = ["Bioinformatics pipeline",
-                "MERFISH",
-                "Multiplexed FISH",
-                "Genome-wide imaging"],
-    scripts = ["bin/merfishdecoder"]
+    entry_points={
+        'console_scripts': ["merlin=merlin.merlin:merlin"]
+    },
+    classifiers=CLASSIFIERS
 )
