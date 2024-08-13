@@ -8,7 +8,7 @@ import cv2
 
 from merlin.core import analysistask
 from merlin.util import aberration
-
+from merlin.util import imagewriter
 
 class Warp(analysistask.ParallelAnalysisTask):
 
@@ -26,26 +26,35 @@ class Warp(analysistask.ParallelAnalysisTask):
             self.parameters['write_fiducial_images'] = False
         if 'write_aligned_images' not in self.parameters:
             self.parameters['write_aligned_images'] = False
+        if 'file_type' not in self.parameters:
+            self.parameters['file_type'] = 'dax'
         if 'ref_index' not in self.parameters:
             self.parameters['ref_index'] = 0
-        self.writeAlignedFiducialImages = self.parameters[
-                'write_fiducial_images']
 
     def get_aligned_image_set(
             self, fov: int,
             chromaticCorrector: aberration.ChromaticCorrector=None
     ) -> np.ndarray:
-        """Get the set of transformed images for the specified fov.
-
-        Args:
+    
+        """
+        Perform align images between different MERFISH imaging rounds.
+    
+            Parameters:
+            -----------
             fov: index of the field of view
+            
             chromaticCorrector: the ChromaticCorrector to use to chromatically
                 correct the images. If not supplied, no correction is
                 performed.
+        
         Returns:
             a 4-dimensional numpy array containing the aligned images. The
                 images are arranged as [channel, zIndex, x, y]
+        
+        Rongxin Fang
+        8/12/2024
         """
+
         dataChannels = self.dataSet.get_data_organization().get_data_channels()
         zIndexes = range(len(self.dataSet.get_z_positions()))
         return np.array([[self.get_aligned_image(fov, d, z, chromaticCorrector)
@@ -95,43 +104,53 @@ class Warp(analysistask.ParallelAnalysisTask):
 
         dataChannels = self.dataSet.get_data_organization().get_data_channels()
 
+        # avoids creating a huge numpy matrix such as 100 x 22 x 2048 x 2048
+        # by proecessing every z indepedently. This is mostly for 3D-MERFISH
+        # when each fov contains 100s of z slices
+        
         if self.parameters['write_aligned_images']:
             zPositions = self.dataSet.get_z_positions()
-
-            imageDescription = self.dataSet.analysis_tiff_description(
-                    len(zPositions), len(dataChannels))
-
-            with self.dataSet.writer_for_analysis_images(
-                    self, 'aligned_images', fov) as outputTif:
-                for t, x in zip(transformationList, dataChannels):
-                    for z in zPositions:
-                        inputImage = self.dataSet.get_raw_image(x, fov, z)
-                        transformedImage = transform.warp(
-                                inputImage, t, preserve_range=True) \
-                            .astype(inputImage.dtype)
-                        outputTif.save(
-                                transformedImage,
-                                photometric='MINISBLACK',
-                                metadata=imageDescription)
-
-        if self.writeAlignedFiducialImages:
-
-            fiducialImageDescription = self.dataSet.analysis_tiff_description(
-                    1, len(dataChannels))
-
-            with self.dataSet.writer_for_analysis_images(
-                    self, 'aligned_fiducial_images', fov) as outputTif:
-                for t, x in zip(transformationList, dataChannels):
-                    inputImage = self.dataSet.get_fiducial_image(x, fov)
+            
+            if self.parameters['file_type'] == "dax":
+                outputTif = imagewriter.DaxWriter(
+                    self.dataSet._analysis_image_name(
+                        self, "aligned_images", fov).replace('tif', 'dax')
+                    );
+            else:
+                outputTif = imagewriter.TiffWriter(
+                    self.dataSet._analysis_image_name(
+                        self, "aligned_images", fov)
+                    );
+            
+            for t, x in zip(transformationList, dataChannels):
+                for z in zPositions:
+                    inputImage = self.dataSet.get_raw_image(x, fov, z)
                     transformedImage = transform.warp(
                             inputImage, t, preserve_range=True) \
                         .astype(inputImage.dtype)
-                    transformedImage = transformedImage / transformedImage.max() * 255
-                    outputTif.save(
-                            transformedImage.astype(np.uint8), 
-                            photometric='MINISBLACK',
-                            metadata=fiducialImageDescription)
+                    outputTif.addFrame(transformedImage)
+            outputTif.close()
 
+        if self.parameters['write_fiducial_images']:
+            if self.parameters['file_type'] == "dax":
+                outputTif = imagewriter.DaxWriter(
+                    self.dataSet._analysis_image_name(
+                        self, "aligned_fiducial_images", fov).replace('tif', 'dax')
+                    )
+            else:
+                outputTif = imagewriter.TiffWriter(
+                    self.dataSet._analysis_image_name(
+                        self, "aligned_fiducial_images", fov)
+                    )
+        
+            for t, x in zip(transformationList, dataChannels):
+                inputImage = self.dataSet.get_fiducial_image(x, fov)
+                transformedImage = transform.warp(
+                        inputImage, t, preserve_range=True) \
+                    .astype(inputImage.dtype)
+                outputTif.addFrame(transformedImage)
+            outputTif.close()
+            
         self._save_transformations(transformationList, fov)
 
     def _save_transformations(self, transformationList: List, fov: int) -> None:
